@@ -1,3 +1,70 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+@plugin "@tailwindcss/typography";
+
+/* Base Theme Variables */
+@layer base {
+  :root {
+    --background: oklch(1 0 0); /* white */
+    --foreground: oklch(0.145 0 0); /* near black */
+
+    --card: var(--background);
+    --card-foreground: var(--foreground);
+
+    --muted: oklch(0.97 0 0); /* light gray */
+    --muted-foreground: oklch(0.556 0 0); /* medium gray */
+
+    --accent: oklch(0.95 0 0);
+    --accent-foreground: var(--foreground);
+
+    --border: oklch(0.922 0 0); /* light border gray */
+    --input: var(--border);
+
+    --ring: oklch(0.708 0 0); /* medium ring gray */
+
+    --destructive: oklch(0.577 0.245 27.325); /* red-ish */
+    --destructive-foreground: oklch(0.985 0 0);
+
+    --radius: 0.5rem;
+  }
+
+  .dark {
+    --background: oklch(0.145 0 0); /* near black */
+    --foreground: oklch(0.985 0 0); /* white */
+
+    --card: oklch(0.205 0 0); /* slightly lighter black */
+    --card-foreground: var(--foreground);
+
+    --muted: oklch(0.269 0 0); /* dark gray */
+    --muted-foreground: oklch(0.708 0 0); /* lighter gray text */
+
+    --accent: oklch(0.371 0 0);
+    --accent-foreground: oklch(0.985 0 0);
+
+    --border: oklch(1 0 0 / 0.1);
+    --input: oklch(1 0 0 / 0.15);
+
+    --ring: oklch(0.556 0 0);
+
+    --destructive: oklch(0.704 0.191 22.216);
+    --destructive-foreground: oklch(0.985 0 0);
+  }
+
+  /* Apply background & foreground globally */
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+  }
+
+  /* Typography plugin + prose defaults */
+  .prose {
+    @apply text-foreground;
+  }
+  .dark .prose {
+    @apply text-foreground;
+  }
+}

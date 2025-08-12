@@ -2,7 +2,7 @@
   "name": "linkedin-copilot",
   "displayName": "Linkedin Copilot",
   "version": "0.0.1",
-  "description": "AI-powered LinkedIn assistant",
+  "description": "An AI copilot for LinkedIn. Generate smart replies, craft engaging posts, and boost your networking and engagement with ease.",
   "author": "Lucius Emmanuel <lucius.emmanuel.e@gmail.com>",
   "scripts": {
     "dev": "plasmo dev",
@@ -10,12 +10,15 @@
     "package": "plasmo package"
   },
   "dependencies": {
+    "@headlessui/react": "^2.2.7",
+    "lucide-react": "^0.539.0",
     "plasmo": "0.90.5",
     "react": "18.2.0",
     "react-dom": "18.2.0"
   },
   "devDependencies": {
     "@ianvs/prettier-plugin-sort-imports": "4.1.1",
+    "@tailwindcss/typography": "^0.5.16",
     "@types/chrome": "0.0.258",
     "@types/node": "20.11.5",
     "@types/react": "18.2.48",
@@ -28,7 +31,7 @@
   },
   "manifest": {
     "host_permissions": [
-      "https://*/*"
+      "https://www.linkedin.com/*"
     ]
   }
 }
