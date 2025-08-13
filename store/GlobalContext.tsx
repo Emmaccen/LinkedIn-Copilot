@@ -1,16 +1,12 @@
 import React, { createContext, useContext, useEffect, useState } from "react"
 
-type Theme = "light" | "dark"
-
-type GlobalState = {
-  theme: Theme
-  setTheme: (theme: Theme) => void
-}
+import type { GlobalState, Notification, NotificationType, Theme } from "~types"
 
 const GlobalContext = createContext<GlobalState | undefined>(undefined)
 
 export const GlobalProvider = ({ children }: { children: React.ReactNode }) => {
   const [theme, setThemeState] = useState<Theme>("light")
+  const [notifications, setNotifications] = useState<Notification[]>([])
 
   // On first load, honor stored preference (or system preference)
   useEffect(() => {
@@ -30,11 +26,30 @@ export const GlobalProvider = ({ children }: { children: React.ReactNode }) => {
     document.documentElement.classList.toggle("dark", newTheme === "dark")
     localStorage.setItem("theme", newTheme)
   }
+  const pushNotification = (
+    message: string,
+    type: NotificationType = "info"
+  ) => {
+    const id = crypto.randomUUID()
+    setNotifications((prev) => [...prev, { id, message, type }])
+    setTimeout(() => removeNotification(id), 4000)
+  }
+
+  const removeNotification = (id: string) => {
+    setNotifications((prev) => prev.filter((n) => n.id !== id))
+  }
 
   const setTheme = (newTheme: Theme) => applyTheme(newTheme)
 
   return (
-    <GlobalContext.Provider value={{ theme, setTheme }}>
+    <GlobalContext.Provider
+      value={{
+        theme,
+        setTheme,
+        notifications,
+        pushNotification,
+        removeNotification
+      }}>
       {children}
     </GlobalContext.Provider>
   )
