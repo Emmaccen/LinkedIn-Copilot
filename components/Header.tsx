@@ -1,10 +1,30 @@
 import { Button } from "@headlessui/react"
 import { Download, Upload } from "lucide-react"
-import { useState } from "react"
+import React, { useState } from "react"
+import { z } from "zod"
 
 import { useGlobalState } from "~store/GlobalContext"
-import type { TemplateCategory } from "~types"
-import { loadFromStorage } from "~utils"
+import type { TemplateCategory, Templates } from "~types"
+
+const contextTypeSchema = z.enum(["feed", "dm", "connection", "post"])
+
+const templateSchema: z.ZodType<Templates> = z.object({
+  id: z.string().min(1, "Template id is required"),
+  message: z.string().min(1, "Message cannot be empty"),
+  aiGenerated: z.boolean(),
+  active: z.boolean(),
+  placeholders: z.array(z.string())
+})
+
+const templateCategorySchema: z.ZodType<TemplateCategory> = z.object({
+  active: z.boolean(),
+  context: z.array(contextTypeSchema).min(1, "Context array cannot be empty"),
+  icon: z.string().min(1, "Icon is required"),
+  templates: z.array(templateSchema).min(1, "At least one template is required")
+})
+
+export const templatesFileSchema: z.ZodType<Record<string, TemplateCategory>> =
+  z.record(z.string(), templateCategorySchema)
 
 export const ImportExportTemplate = () => {
   const { pushNotification } = useGlobalState()
@@ -24,10 +44,13 @@ export const ImportExportTemplate = () => {
           typeof result === "string" ? JSON.parse(result) : {}
 
         // Validate structure
-        if (typeof uploadedTemplates !== "object") {
-          throw new Error("Invalid file format")
-        }
+        const validated = templatesFileSchema.safeParse(uploadedTemplates)
 
+        if (!validated.success && !validated.data) {
+          throw new Error(
+            "Invalid template structure: " + validated.error.message
+          )
+        }
         // Merge with existing templates
         const mergedTemplates = { ...templates, ...uploadedTemplates }
         setTemplates(mergedTemplates)
@@ -35,13 +58,32 @@ export const ImportExportTemplate = () => {
         pushNotification("Templates imported successfully!", "success")
       } catch (error) {
         pushNotification(
-          "Error importing templates: Invalid JSON file",
+          "Error importing templates: Invalid template structure",
           "error"
         )
         console.error("Error importing templates:", error)
       }
     }
     reader.readAsText(file)
+  }
+
+  const exportTemplates = () => {
+    const templatesFromStorage = localStorage.getItem("templates")
+    if (!templatesFromStorage) {
+      pushNotification("No templates to export", "info")
+      return
+    }
+    const dataStr = JSON.stringify(JSON.parse(templatesFromStorage), null, 2)
+    const dataUri =
+      "data:application/json;charset=utf-8," + encodeURIComponent(dataStr)
+
+    const exportFileDefaultName = "linkedin-copilot-templates.json"
+
+    const linkElement = document.createElement("a")
+    linkElement.setAttribute("href", dataUri)
+    linkElement.setAttribute("download", exportFileDefaultName)
+    linkElement.click()
+    linkElement.remove()
   }
 
   return (
@@ -63,7 +105,7 @@ export const ImportExportTemplate = () => {
           </label>
         </div>
         <Button
-          onClick={() => pushNotification("testing", "info")}
+          onClick={exportTemplates}
           className="flex items-center gap-2 bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 transition-colors cursor-pointer">
           <Download size={16} /> Export Templates
         </Button>
