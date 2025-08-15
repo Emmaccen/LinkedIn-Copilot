@@ -4,11 +4,12 @@ import React, { useState } from "react"
 import { z } from "zod"
 
 import { useGlobalState } from "~store/GlobalContext"
-import type { TemplateCategory, Templates } from "~types"
+import type { Template, TemplateCategory } from "~types"
+import { saveToLocalStorage } from "~utils"
 
 const contextTypeSchema = z.enum(["feed", "dm", "connection", "post"])
 
-const templateSchema: z.ZodType<Templates> = z.object({
+const templateSchema: z.ZodType<Template> = z.object({
   id: z.string().min(1, "Template id is required"),
   message: z.string().min(1, "Message cannot be empty"),
   aiGenerated: z.boolean(),
@@ -52,9 +53,12 @@ export const ImportExportTemplate = () => {
           )
         }
         // Merge with existing templates
-        const mergedTemplates = { ...templates, ...uploadedTemplates }
+        const mergedTemplates = { ...templates, ...validated.data }
         setTemplates(mergedTemplates)
-        localStorage.setItem("templates", JSON.stringify(mergedTemplates))
+        saveToLocalStorage<Record<string, TemplateCategory>>(
+          "templates",
+          mergedTemplates
+        )
         pushNotification("Templates imported successfully!", "success")
       } catch (error) {
         pushNotification(
