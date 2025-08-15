@@ -22,7 +22,9 @@ module.exports = {
         input: "var(--input)",
         ring: "var(--ring)",
         destructive: "var(--destructive)",
-        "destructive-foreground": "var(--destructive-foreground)"
+        "destructive-foreground": "var(--destructive-foreground)",
+        "brand-blue": "oklch(var(--brand-blue) / <alpha-value>)",
+        "brand-green": "oklch(var(--brand-green) / <alpha-value>)"
       },
       borderRadius: {
         lg: "var(--radius)",

@@ -26,6 +26,8 @@
     --destructive: oklch(0.577 0.245 27.325); /* red-ish */
     --destructive-foreground: oklch(0.985 0 0);
 
+    --brand-blue: 0.55 0.22 262.89; /* blue accent */
+    --brand-green: 0.63 0.17 149.21; /* green accent */
     --radius: 0.5rem;
   }
 
@@ -49,6 +51,9 @@
 
     --destructive: oklch(0.704 0.191 22.216);
     --destructive-foreground: oklch(0.985 0 0);
+
+    --brand-blue: 0.55 0.22 262.89; /* blue accent */
+    --brand-green: 0.63 0.17 149.21 /* green accent */;
   }
 
   /* Apply background & foreground globally */
