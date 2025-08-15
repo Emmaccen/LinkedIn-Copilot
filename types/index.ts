@@ -13,9 +13,10 @@ export type GlobalState = {
   notifications?: Notification[]
   pushNotification?: (message: string, type?: NotificationType) => void
   removeNotification?: (id: string) => void
+  templates?: Record<string, TemplateCategory>
 }
 
-export interface Templates {
+export interface Template {
   id: string
   message: string
   aiGenerated: boolean
@@ -26,7 +27,7 @@ export interface TemplateCategory {
   active: boolean
   context: ContextType[]
   icon: string
-  templates: Templates[]
+  templates: Template[]
 }
 
 export type ContextType = "feed" | "dm" | "connection" | "post"

@@ -1,16 +1,30 @@
-import React, { createContext, useContext, useEffect, useState } from "react"
+import type React from "react"
+import { createContext, useContext, useEffect, useState } from "react"
 
-import type { GlobalState, Notification, NotificationType, Theme } from "~types"
+import type {
+  GlobalState,
+  Notification,
+  NotificationType,
+  TemplateCategory,
+  Theme
+} from "~types"
+import {
+  loadFromLocalStorage,
+  saveToLocalStorage,
+  STORAGE_CHANGE_EVENT
+} from "~utils"
 
 const GlobalContext = createContext<GlobalState | undefined>(undefined)
 
 export const GlobalProvider = ({ children }: { children: React.ReactNode }) => {
   const [theme, setThemeState] = useState<Theme>("light")
   const [notifications, setNotifications] = useState<Notification[]>([])
+  const [templates, setTemplates] = useState<Record<string, TemplateCategory>>(
+    {}
+  )
 
-  // On first load, honor stored preference (or system preference)
   useEffect(() => {
-    const storedTheme = localStorage.getItem("theme")
+    const storedTheme = loadFromLocalStorage<Theme>("theme")
     if (storedTheme) {
       applyTheme(storedTheme as Theme)
     } else {
@@ -21,11 +35,50 @@ export const GlobalProvider = ({ children }: { children: React.ReactNode }) => {
     }
   }, [])
 
+  useEffect(() => {
+    const storedTemplates =
+      loadFromLocalStorage<Record<string, TemplateCategory>>("templates")
+    if (storedTemplates) {
+      setTemplates(storedTemplates)
+    }
+
+    // Handle both cross-tab storage events and same-tab custom events
+    const handleStorageChange = (event: StorageEvent) => {
+      if (event.key === "templates") {
+        const updatedTemplates = JSON.parse(event.newValue || "{}")
+        setTemplates(updatedTemplates)
+      }
+    }
+
+    const handleCustomStorageChange = (event: CustomEvent) => {
+      if (event.detail.key === "templates") {
+        const updatedTemplates = JSON.parse(event.detail.newValue || "{}")
+        setTemplates(updatedTemplates)
+      }
+    }
+
+    // Listen for both types of events
+    window.addEventListener("storage", handleStorageChange)
+    window.addEventListener(
+      STORAGE_CHANGE_EVENT,
+      handleCustomStorageChange as EventListener
+    )
+
+    return () => {
+      window.removeEventListener("storage", handleStorageChange)
+      window.removeEventListener(
+        STORAGE_CHANGE_EVENT,
+        handleCustomStorageChange as EventListener
+      )
+    }
+  }, [])
+
   const applyTheme = (newTheme: Theme) => {
     setThemeState(newTheme)
     document.documentElement.classList.toggle("dark", newTheme === "dark")
-    localStorage.setItem("theme", newTheme)
+    saveToLocalStorage<string>("theme", newTheme)
   }
+
   const pushNotification = (
     message: string,
     type: NotificationType = "info"
@@ -48,7 +101,8 @@ export const GlobalProvider = ({ children }: { children: React.ReactNode }) => {
         setTheme,
         notifications,
         pushNotification,
-        removeNotification
+        removeNotification,
+        templates
       }}>
       {children}
     </GlobalContext.Provider>
