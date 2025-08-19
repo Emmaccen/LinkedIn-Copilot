@@ -6,7 +6,9 @@ import type {
   Notification,
   NotificationType,
   TemplateCategory,
-  Theme
+  Theme,
+  UserDetails,
+  UserSettings
 } from "~types"
 import {
   loadFromLocalStorage,
@@ -18,54 +20,110 @@ const GlobalContext = createContext<GlobalState | undefined>(undefined)
 
 export const GlobalProvider = ({ children }: { children: React.ReactNode }) => {
   const [theme, setThemeState] = useState<Theme>("light")
+  const [userSettings, setUserSettings] = useState<UserSettings>({
+    typingDelay: 40,
+    enableTypingSimulation: true
+  })
+  const [userDetails, setUserDetails] = useState<UserDetails>({
+    fullName: "",
+    professionalTitle: "",
+    professionalSummary: ""
+  })
   const [notifications, setNotifications] = useState<Notification[]>([])
   const [templates, setTemplates] = useState<Record<string, TemplateCategory>>(
     {}
   )
 
   useEffect(() => {
-    const storedTheme = loadFromLocalStorage<Theme>("theme")
-    if (storedTheme) {
-      applyTheme(storedTheme as Theme)
-    } else {
-      const prefersDark = window.matchMedia(
-        "(prefers-color-scheme: dark)"
-      ).matches
-      applyTheme(prefersDark ? "dark" : "light")
-    }
+    loadFromLocalStorage<UserSettings>("userSettings").then(
+      (storedUserSettings) => {
+        if (storedUserSettings) setUserSettings(storedUserSettings)
+      }
+    )
+    loadFromLocalStorage<UserDetails>("userDetails").then(
+      (storedUserDetails) => {
+        if (storedUserDetails) setUserDetails(storedUserDetails)
+      }
+    )
+    loadFromLocalStorage<Record<string, TemplateCategory>>("templates").then(
+      (storedTemplates) => {
+        if (storedTemplates) setTemplates(storedTemplates)
+      }
+    )
+    loadFromLocalStorage<Theme>("theme").then((storedTheme) => {
+      if (storedTheme) {
+        applyTheme(storedTheme)
+      } else {
+        const prefersDark = window.matchMedia(
+          "(prefers-color-scheme: dark)"
+        ).matches
+        applyTheme(prefersDark ? "dark" : "light")
+      }
+    })
   }, [])
 
   useEffect(() => {
-    const storedTemplates =
-      loadFromLocalStorage<Record<string, TemplateCategory>>("templates")
-    if (storedTemplates) {
-      setTemplates(storedTemplates)
-    }
-
-    // Handle both cross-tab storage events and same-tab custom events
-    const handleStorageChange = (event: StorageEvent) => {
-      if (event.key === "templates") {
-        const updatedTemplates = JSON.parse(event.newValue || "{}")
-        setTemplates(updatedTemplates)
+    const handleStorageChange = (
+      changes: { [key: string]: chrome.storage.StorageChange },
+      namespace: "sync" | "local" | "managed" | "session"
+    ) => {
+      if (namespace === "local") {
+        if (changes["templates"]) {
+          const updatedTemplates = JSON.parse(
+            changes["templates"].newValue || "{}"
+          ) as Record<string, TemplateCategory>
+          setTemplates(updatedTemplates)
+        }
+        if (changes["userSettings"]) {
+          const newUserSettings = JSON.parse(
+            changes["userSettings"].newValue || "{}"
+          ) as UserSettings
+          setUserSettings(newUserSettings)
+        }
+        if (changes["userDetails"]) {
+          const newUserDetails = JSON.parse(
+            changes["userDetails"].newValue || "{}"
+          ) as UserDetails
+          setUserDetails(newUserDetails)
+        }
       }
     }
 
+    // Handle custom events
     const handleCustomStorageChange = (event: CustomEvent) => {
       if (event.detail.key === "templates") {
-        const updatedTemplates = JSON.parse(event.detail.newValue || "{}")
+        const updatedTemplates = JSON.parse(
+          event.detail.newValue || "{}"
+        ) as Record<string, TemplateCategory>
         setTemplates(updatedTemplates)
+      }
+      if (event.detail.key === "theme") {
+        // const newTheme = event.detail.newValue as Theme
+        // applyTheme(newTheme)
+      }
+      if (event.detail.key === "userSettings") {
+        const newUserSettings = JSON.parse(
+          event.detail.newValue || "{}"
+        ) as UserSettings
+        setUserSettings(newUserSettings)
+      }
+      if (event.detail.key === "userDetails") {
+        const newUserDetails = JSON.parse(
+          event.detail.newValue || "{}"
+        ) as UserDetails
+        setUserDetails(newUserDetails)
       }
     }
 
-    // Listen for both types of events
-    window.addEventListener("storage", handleStorageChange)
+    chrome.storage.onChanged.addListener(handleStorageChange)
+
     window.addEventListener(
       STORAGE_CHANGE_EVENT,
       handleCustomStorageChange as EventListener
     )
 
     return () => {
-      window.removeEventListener("storage", handleStorageChange)
+      chrome.storage.onChanged.removeListener(handleStorageChange)
       window.removeEventListener(
         STORAGE_CHANGE_EVENT,
         handleCustomStorageChange as EventListener
@@ -102,7 +160,9 @@ export const GlobalProvider = ({ children }: { children: React.ReactNode }) => {
         notifications,
         pushNotification,
         removeNotification,
-        templates
+        templates,
+        userSettings,
+        userDetails
       }}>
       {children}
     </GlobalContext.Provider>
