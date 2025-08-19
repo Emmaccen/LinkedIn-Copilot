@@ -52,7 +52,6 @@ function TemplateManager() {
   useEffect(() => {
     const categories = Object.keys(templates)
     if (categories.length > 0) {
-      console.log("Available categories:", categories)
       setCategories(categories)
       setSelectedCategory(
         categories[categories.indexOf(selectedCategory)] ?? categories[0]
@@ -76,6 +75,7 @@ function TemplateManager() {
   }
 
   const handleCategoryToggle = (enabled: boolean) => {
+    if (!selectedCategory || !templates[selectedCategory]) return
     saveToLocalStorage<Record<string, TemplateCategory>>("templates", {
       ...templates,
       [selectedCategory]: {
@@ -151,6 +151,35 @@ function TemplateManager() {
     })
   }
 
+  const handleDeleteCategory = () => {
+    if (!selectedCategory || !templates[selectedCategory]) return
+
+    if (
+      !window.confirm(
+        "Are you sure you want to delete this category and all it's templates?"
+      )
+    ) {
+      return
+    }
+    const updatedTemplates = { ...templates }
+    delete updatedTemplates[selectedCategory]
+    saveToLocalStorage<Record<string, TemplateCategory>>(
+      "templates",
+      updatedTemplates
+    )
+    if (Object.keys(updatedTemplates).length === 0) {
+      const categories = Object.keys(updatedTemplates)
+      setCategories(categories)
+      setSelectedCategory(
+        categories[categories.indexOf(selectedCategory)] ?? categories[0]
+      )
+      setCurrentTemplateCategory(
+        templates[categories[categories.indexOf(selectedCategory)]] ??
+          templates[categories[0]]
+      )
+    }
+  }
+
   return (
     <div className="">
       <div className="mb-8">
@@ -160,7 +189,7 @@ function TemplateManager() {
         </p>
       </div>
 
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-4">
           <div className="relative">
             <Listbox value={selectedCategory} onChange={setSelectedCategory}>
@@ -221,45 +250,6 @@ function TemplateManager() {
                 </Transition>
               </div>
             </Listbox>
-            <div className="flex flex-wrap gap-2 mt-2">
-              {(Object.keys(contextLabels) as ContextType[]).map((ctx) => {
-                let isContextInCategory =
-                  currentTemplateCategory?.context.indexOf(ctx) !== -1
-
-                return (
-                  <button
-                    title="toggle context"
-                    onClick={() => {
-                      if (
-                        currentTemplateCategory &&
-                        currentTemplateCategory.context
-                      ) {
-                        const newContext =
-                          currentTemplateCategory.context.includes(ctx)
-                            ? currentTemplateCategory.context.filter(
-                                (c) => c !== ctx
-                              )
-                            : [...currentTemplateCategory.context, ctx]
-
-                        saveToLocalStorage<Record<string, TemplateCategory>>(
-                          "templates",
-                          {
-                            ...templates,
-                            [selectedCategory]: {
-                              ...currentTemplateCategory,
-                              context: newContext
-                            }
-                          }
-                        )
-                      }
-                    }}
-                    key={ctx}
-                    className={`inline-flex items-center px-2 py-1 rounded-md text-xs font-medium ${isContextInCategory ? contextColors[ctx] : "border opacity-30"}`}>
-                    {contextLabels[ctx]}
-                  </button>
-                )
-              })}
-            </div>
           </div>
 
           <div className="flex items-center gap-3">
@@ -297,8 +287,52 @@ function TemplateManager() {
           <PlusIcon className="h-4 w-4" />
           Add Template
         </button>
+        {/* <button
+          onClick={handleDeleteCategory}
+          className="inline-flex items-center gap-2 rounded-lg bg-destructive px-4 py-2 text-sm font-medium text-destructive-foreground hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-600 focus:ring-offset-2 transition-colors">
+          <TrashIcon className="h-4 w-4" />
+          Delete Category
+        </button> */}
       </div>
+      <div className="flex flex-wrap gap-2 mb-6">
+        {(Object.keys(contextLabels) as ContextType[]).map((ctx) => {
+          let isContextInCategory =
+            currentTemplateCategory?.context &&
+            currentTemplateCategory?.context.indexOf(ctx) !== -1
 
+          return (
+            <button
+              title="toggle context"
+              onClick={() => {
+                if (
+                  currentTemplateCategory &&
+                  currentTemplateCategory.context
+                ) {
+                  const newContext = currentTemplateCategory.context.includes(
+                    ctx
+                  )
+                    ? currentTemplateCategory.context.filter((c) => c !== ctx)
+                    : [...currentTemplateCategory.context, ctx]
+
+                  saveToLocalStorage<Record<string, TemplateCategory>>(
+                    "templates",
+                    {
+                      ...templates,
+                      [selectedCategory]: {
+                        ...currentTemplateCategory,
+                        context: newContext
+                      }
+                    }
+                  )
+                }
+              }}
+              key={ctx}
+              className={`inline-flex items-center px-2 py-1 rounded-md text-xs font-medium ${isContextInCategory ? contextColors[ctx] : "border opacity-30"}`}>
+              {contextLabels[ctx]}
+            </button>
+          )
+        })}
+      </div>
       {/* Templates Table */}
       <div className="bg-card rounded-lg border border-border shadow-sm overflow-hidden">
         <div className="overflow-x-auto">

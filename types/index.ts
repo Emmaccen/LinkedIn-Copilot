@@ -1,6 +1,15 @@
 export type Theme = "light" | "dark"
 export type NotificationType = "success" | "error" | "info"
 
+export interface UserSettings {
+  typingDelay: number
+  enableTypingSimulation: boolean
+}
+export interface UserDetails {
+  fullName: string
+  professionalTitle: string
+  professionalSummary: string
+}
 export interface Notification {
   id: string
   message: string
@@ -14,6 +23,8 @@ export type GlobalState = {
   pushNotification?: (message: string, type?: NotificationType) => void
   removeNotification?: (id: string) => void
   templates?: Record<string, TemplateCategory>
+  userDetails: UserDetails
+  userSettings: UserSettings
 }
 
 export interface Template {
