@@ -1,33 +1,90 @@
-This is a [Plasmo extension](https://docs.plasmo.com/) project bootstrapped with [`plasmo init`](https://www.npmjs.com/package/plasmo).
+# LinkedIn Copilot
 
-## Getting Started
+A lightweight, open-source **LinkedIn copilot** that helps you craft replies and posts fast-**fully in your control**, tuned to **your tone**, and built with a clean, privacy-first architecture.
 
-First, run the development server:
+---
 
-```bash
-pnpm dev
-# or
-npm run dev
-```
+## ✨ What it does (Beta)
 
-Open your browser and load the appropriate development build. For example, if you are developing for the chrome browser, using manifest v3, use: `build/chrome-mv3-dev`.
+* **Template Replies** — Save reusable replies (e.g., congrats, thanks, quick follow-ups) and drop them into comments in a click.
+* **AI Replies** — Get AI-drafted replies that match your voice; you always review/approve before posting.
+* **AI Posts** — Generate post drafts tailored to your style (tone/length/voice controls).
+* **Template Management** — Import/export JSON, validate with Zod, organize by category and context.
+* **AI Manager** — Central place to configure models, tone presets, and behavior.
 
-You can start editing the popup by modifying `popup.tsx`. It should auto-update as you make changes. To add an options page, simply add a `options.tsx` file to the root of the project, with a react component default exported. Likewise to add a content page, add a `content.ts` file to the root of the project, importing some module and do some logic, then reload the extension on your browser.
+> **Design principle:** AI is a copilot, not an autopilot. You’re always in charge.
 
-For further guidance, [visit our Documentation](https://docs.plasmo.com/)
+---
 
-## Making production build
+## Future plans
 
-Run the following:
+* AI-powered **DM replies**
+* **Connection request** messages & workflows
+* Deeper engagement flows (auto-suggested posts, follow actions, etc.)
 
-```bash
-pnpm build
-# or
-npm run build
-```
+---
 
-This should create a production bundle for your extension, ready to be zipped and published to the stores.
+## ⚙️ How it works
 
-## Submit to the webstores
+* **Options Page as Control Center**  
+ All management (templates, AI settings, theme, import/export) lives in the **Options page** for a focused workflow.
 
-The easiest way to deploy your Plasmo extension is to use the built-in [bpp](https://bpp.browser.market) GitHub action. Prior to using this action however, make sure to build your extension and upload the first version to the store to establish the basic credentials. Then, simply follow [this setup instruction](https://docs.plasmo.com/framework/workflows/submit) and you should be on your way for automated submission!
+* **Your Voice, Your Rules**  
+  Drafts are generated from prompts designed to reflect your profile’s vibe and preferences you set (tone, formality, length). You always review before posting.
+
+* **Lean, Extensible Architecture**
+
+  * **Plasmo (MV3)** with separate entries for background, content, and options
+  * **Headless UI** for accessible building blocks
+  * **Tailwind v3** with a grayscale CSS-variable theme (light/dark)
+  * **Zod** to validate imported template files
+  * **Groq** for fast, low-latency AI generation
+
+---
+
+## 🤝 Contributing
+
+* **Star** the repo to support early development (huge help right now!)
+* Open issues for bugs/ideas
+* PRs welcome: small fixes, docs, templates, prompts, UX polish
+
+**Good first PRs**
+
+* New template categories (JSON)
+* Prompt tuning for better tone-matching
+* Feature suggestions
+
+---
+
+## 🗺️ Roadmap (living)
+
+* [x] Options page (Templates, AI Manager, Theme)
+* [x] Template replies & management
+* [x] AI replies
+* [x] AI posts
+* [x] Zod validation for imports
+* [ ] DM replies
+* [ ] Connection request flows
+* [ ] Deeper engagement copilot
+
+---
+
+## ⚖️ Disclaimer
+
+This project is not affiliated with, endorsed, or sponsored by LinkedIn. Use responsibly and in accordance with LinkedIn’s Terms of Service.
+
+---
+
+## 👤 About the Creator
+
+I’m Lucius Emmanuel. I build in public to prove a simple belief: **engineering is the ultimate superpower.**
+I’m using open-source projects as training grounds for real entrepreneurship, and I share everything I learn.
+
+* ✍️ Substack: **[https://substack.com/@emmaccen](https://substack.com/@emmaccen)**
+* 🐦 Twitter/X: **[@emmaccen](https://x.com/emmaccen)**
+
+If this resonates, **star the repo** and follow along. More to come. 🚀
+
+---
+
+**MIT licensed.**
