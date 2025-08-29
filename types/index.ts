@@ -1,5 +1,5 @@
 export type Theme = "light" | "dark"
-export type NotificationType = "success" | "error" | "info"
+export type NotificationType = "success" | "error" | "info" | "warning"
 
 export interface UserSettings {
   typingDelay: number
@@ -39,6 +39,25 @@ export interface TemplateCategory {
   context: ContextType[]
   icon: string
   templates: Template[]
+}
+export interface DropdownAction {
+  id: string
+  label: string
+  icon: string
+  category: string
+}
+
+export interface UserInfo {
+  name?: string
+  desc?: string
+  [key: string]: string | undefined
+}
+
+export interface UsageStats {
+  [date: string]: {
+    [category: string]: number
+    total?: number
+  }
 }
 
 export type ContextType = "feed" | "dm" | "connection" | "post"
