@@ -1,6 +1,6 @@
 export const STORAGE_CHANGE_EVENT = "customStorageChange"
-export const ENCRYPTION_KEY_NAME = "linkedin-copilot-key"
-export const ENCRYPTION_KEY = "foobar"
+export const ENCRYPTION_KEY_NAME = "linkedin-copilot-key" // For storing the encryption key
+export const ENCRYPTED_API_KEY_NAME = "encrypted-groq-api-key" // For storing the encrypted API key
 const dispatchStorageEvent = (key: string, newValue: string | null) => {
   window.dispatchEvent(
     new CustomEvent(STORAGE_CHANGE_EVENT, {
@@ -137,15 +137,22 @@ export async function encryptApiKey(apiKey: string): Promise<string> {
 export async function decryptApiKey(cipherText: string): Promise<string> {
   try {
     const key = await getOrCreateKey()
+
+    // Add more detailed logging
+    // console.log("Cipher text received:", cipherText)
+
     const payload = JSON.parse(cipherText)
+    // console.log("Parsed payload:", payload)
 
     // Validate payload structure
     if (!payload.iv || !payload.data) {
-      throw new Error("Invalid cipher text format")
+      throw new Error("Invalid cipher text format - missing iv or data")
     }
 
     const iv = base64ToBuffer(payload.iv)
     const data = base64ToBuffer(payload.data)
+
+    console.log("IV length:", iv.length, "Data length:", data.length)
 
     const decrypted = await crypto.subtle.decrypt(
       { name: "AES-GCM", iv },
@@ -154,18 +161,60 @@ export async function decryptApiKey(cipherText: string): Promise<string> {
     )
 
     const result = new TextDecoder().decode(decrypted)
-    // console.log("Decryption successful")
+    // console.log("Decryption successful, API key length:", result.length)
     return result
   } catch (error) {
     console.error("Decryption failed:", error)
     console.error("Error details:", error.message)
+    console.error("Stack trace:", error.stack)
 
     // If decryption fails, it might be a key mismatch - clear and retry once
-    if (error.message.includes("decrypt")) {
+    if (
+      error.message.includes("decrypt") ||
+      error.message.includes("OperationError")
+    ) {
       console.warn("Clearing encryption key due to decrypt failure")
       await chrome.storage.local.remove(ENCRYPTION_KEY_NAME)
     }
 
     throw new Error(`Failed to decrypt API key: ${error.message}`)
   }
+}
+
+// Helper function to save encrypted API key
+export async function saveEncryptedApiKey(apiKey: string): Promise<void> {
+  try {
+    const encryptedKey = await encryptApiKey(apiKey)
+    await chrome.storage.local.set({
+      [ENCRYPTED_API_KEY_NAME]: encryptedKey
+    })
+    console.log("API key encrypted and saved successfully")
+  } catch (error) {
+    console.error("Failed to save encrypted API key:", error)
+    throw error
+  }
+}
+
+// Helper function to get decrypted API key
+export async function getDecryptedApiKey(): Promise<string | null> {
+  try {
+    const stored = await chrome.storage.local.get(ENCRYPTED_API_KEY_NAME)
+    if (!stored[ENCRYPTED_API_KEY_NAME]) {
+      console.log("No encrypted API key found in storage")
+      return null
+    }
+
+    return await decryptApiKey(stored[ENCRYPTED_API_KEY_NAME])
+  } catch (error) {
+    console.error("Failed to get decrypted API key:", error)
+    return null
+  }
+}
+
+// Debug function to check storage contents
+export async function debugStorage(): Promise<void> {
+  const allStorage = await chrome.storage.local.get(null)
+  console.log("All storage contents:", allStorage)
+  console.log("Encryption key exists:", !!allStorage[ENCRYPTION_KEY_NAME])
+  console.log("Encrypted API key exists:", !!allStorage[ENCRYPTED_API_KEY_NAME])
 }

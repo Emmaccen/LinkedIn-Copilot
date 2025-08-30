@@ -15,21 +15,11 @@ export const linkedInCopilotStyles = `
         transition: background-color 0.2s ease;
         white-space: nowrap;
       }
-      
-      .copilot-ai-badge {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        color: white;
-        padding: 2px 6px;
-        border-radius: 4px;
-        font-size: 10px;
-        font-weight: 600;
-        text-transform: uppercase;
-        letter-spacing: 0.5px;
-      }
-      
-      .copilot-dropdown-option:first-child {
-        background: linear-gradient(135deg, #f8f9ff 0%, #f0f2ff 100%);
-      }
+        .copilot-capsule-ai {
+          background: linear-gradient(163deg, #3c52d0 0%, #544067 100%);
+       border: none;
+
+        }
       
       .copilot-dropdown-option:first-child:hover {
         background: linear-gradient(135deg, #f0f2ff 0%, #e8ebff 100%);

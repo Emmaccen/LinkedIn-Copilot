@@ -1,9 +1,12 @@
-import React, { useEffect, useRef, useState } from "react"
+import { useEffect, useState } from "react"
 
-import { SaveIcon } from "~node_modules/lucide-react/dist/lucide-react"
 import { useGlobalState } from "~store/GlobalContext"
-import type { TemplateCategory, Theme, UserDetails, UserSettings } from "~types"
-import { encryptApiKey, loadFromLocalStorage, saveToLocalStorage } from "~utils"
+import type { Theme, UserDetails, UserSettings } from "~types"
+import {
+  loadFromLocalStorage,
+  saveEncryptedApiKey,
+  saveToLocalStorage
+} from "~utils"
 
 const hiddenKey = "***************************************"
 
@@ -277,8 +280,7 @@ export function SettingsManager() {
             <button
               onClick={async () => {
                 if (!apiKey || apiKey === hiddenKey) return
-                const encryptedKey = await encryptApiKey(apiKey)
-                saveToLocalStorage("ENCRYPTION_KEY", encryptedKey)
+                await saveEncryptedApiKey(apiKey)
                 setApiKey(hiddenKey)
                 pushNotification("API Key saved successfully", "success")
               }}

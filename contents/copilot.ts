@@ -1,5 +1,7 @@
 import type { PlasmoCSConfig } from "plasmo"
 
+import { generateReply } from "~lib/ai-copilot"
+import { AiCommentSystemMessage } from "~static-data"
 import { linkedInCopilotStyles } from "~styles"
 import type {
   ContextType,
@@ -59,19 +61,17 @@ class LinkedinCopilot {
         "userSettings",
         "userDetails"
       ])
-      console.log(result.templates)
       this.settings = {
         ...this.settings,
         ...(result.settings ? JSON.parse(result.settings) : {})
       }
-      this.userDetails = result.UserDetails
-        ? JSON.parse(result.UserDetails)
+      this.userDetails = result.userDetails
+        ? JSON.parse(result.userDetails)
         : {
             fullName: "",
             professionalTitle: "",
             professionalSummary: ""
           }
-
       if (result.templates) this.templates = JSON.parse(result.templates)
     } catch (error) {
       console.error("Error loading settings:", error)
@@ -178,13 +178,13 @@ class LinkedinCopilot {
     }
 
     // Hide dropdown on blur (with delay for click handling)
-    inputElement.addEventListener("blur", () => {
-      setTimeout(() => {
-        if (!dropdown.matches(":hover")) {
-          this.hideDropdown(dropdown)
-        }
-      }, 150)
-    })
+    // inputElement.addEventListener("blur", () => {
+    //   setTimeout(() => {
+    //     if (!dropdown.matches(":hover")) {
+    //       this.hideDropdown(dropdown)
+    //     }
+    //   }, 150)
+    // })
   }
 
   private createDropdown(
@@ -208,13 +208,12 @@ class LinkedinCopilot {
       capsule.innerHTML = `
       <span class="copilot-capsule-icon">${action.icon}</span>
       <span class="copilot-capsule-text">${action.label}</span>
-      ${action.category === "ai" ? '<span class="copilot-ai-badge">AI</span>' : ""}
     `
 
       capsule.addEventListener("click", (e) => {
         e.preventDefault()
         this.handleDropdownAction(action, inputElement, context)
-        this.hideDropdown(dropdown)
+        // this.hideDropdown(dropdown)
       })
 
       capsuleContainer.appendChild(capsule)
@@ -249,6 +248,12 @@ class LinkedinCopilot {
     }
 
     if (context === "feed") {
+      baseActions.push({
+        id: "ai-reply",
+        label: "Reply with AI",
+        icon: "",
+        category: "ai"
+      })
       for (const [group] of Object.entries(sectionTemplate()["feed"] ?? {})) {
         baseActions.push({
           id: `template-${group}`,
@@ -268,10 +273,68 @@ class LinkedinCopilot {
     context: ContextType
   ): Promise<void> {
     try {
-      await this.handleTemplateReply(action.category, inputElement)
+      if (action.category === "ai") {
+        if (action.id === "ai-reply") {
+          // Handle AI reply for feed or DM
+          await this.handleAIReply(inputElement, context)
+        }
+      } else {
+        await this.handleTemplateReply(action.category, inputElement)
+      }
     } catch (error) {
       console.error("Error handling dropdown action:", error)
       this.showNotification("Failed to generate reply", error)
+    }
+  }
+
+  private extractPostContent(inputElement: HTMLElement): string {
+    // Find the post content relative to the comment box
+    const postContainer =
+      inputElement.closest(".feed-shared-update-v2") ||
+      inputElement.closest(
+        ".feed-shared-update-detail-viewer__overflow-content"
+      )
+    if (!postContainer) return ""
+
+    const contentElement = postContainer.querySelector(
+      ".update-components-text"
+    )
+    return contentElement?.textContent?.trim() || ""
+  }
+
+  private async handleAIReply(
+    inputElement: HTMLElement,
+    context: ContextType
+  ): Promise<void> {
+    this.showNotification("Generating AI reply...", "info")
+
+    // Extract post content for context
+    const postContent = this.extractPostContent(inputElement)
+    const userInfo = this.extractUserInfo(inputElement)
+
+    try {
+      this.setInputValue("", inputElement)
+      const stream = await generateReply({
+        message: postContent,
+        systemMessage: AiCommentSystemMessage({
+          linkedInPostUserInfo: userInfo,
+          personalInfo: this.userDetails,
+          context
+        })
+      })
+      for await (const chunk of stream) {
+        this.setInputValue(
+          chunk.choices[0]?.delta?.content || "",
+          inputElement,
+          true
+        )
+      }
+
+      this.showNotification("AI reply generated!", "success")
+      this.updateUsageStats("ai")
+    } catch (error) {
+      console.log(error)
+      this.showNotification("AI service unavailable", "error")
     }
   }
 
