@@ -5,6 +5,7 @@ export const linkedInCopilotStyles = `
           gap: 10px;
           overflow: scroll;
           padding: 15px 5px;
+          font-size: 12px;
       }
       
       .copilot-capsule {
@@ -61,4 +62,117 @@ export const linkedInCopilotStyles = `
         background-color: #d93025;
       }
 
+      .aiDirectDmReplyButton {
+        margin-top: 5px;
+        padding: 12px 16px;
+        cursor: pointer;
+        border: 1px solid #ffffff66;
+        transition: background-color 0.2s ease;
+        white-space: nowrap;
+        color: inherit;
+      }
+
+      /* AI Processing Animation */
+      .ai-processing {
+        position: relative;
+        overflow: hidden;
+      }
+
+      .ai-processing::before {
+        content: '';
+        position: absolute;
+        top: -2px;
+        left: -2px;
+        right: -2px;
+        bottom: -2px;
+        background: conic-gradient(
+          from 0deg,
+          #6366f1,
+          #8b5cf6,
+          #ec4899,
+          #f59e0b,
+          #10b981,
+          #06b6d4,
+          #6366f1
+        );
+        border-radius: inherit;
+        animation: ai-rotate 2s linear infinite;
+        z-index: -1;
+      }
+
+      .ai-processing::after {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: inherit;
+        border-radius: inherit;
+        z-index: -1;
+      }
+
+      /* Pulsing glow effect */
+      .ai-processing {
+        animation: ai-pulse 1.5s ease-in-out infinite alternate;
+        box-shadow: 
+          0 0 20px rgba(99, 102, 241, 0.3),
+          0 0 40px rgba(139, 92, 246, 0.2),
+          0 0 60px rgba(236, 72, 153, 0.1);
+      }
+
+      @keyframes ai-rotate {
+        0% {
+          transform: rotate(0deg);
+        }
+        100% {
+          transform: rotate(360deg);
+        }
+      }
+
+      @keyframes ai-pulse {
+        0% {
+          box-shadow: 
+            0 0 20px rgba(99, 102, 241, 0.3),
+            0 0 40px rgba(139, 92, 246, 0.2),
+            0 0 60px rgba(236, 72, 153, 0.1);
+        }
+        100% {
+          box-shadow: 
+            0 0 30px rgba(99, 102, 241, 0.5),
+            0 0 60px rgba(139, 92, 246, 0.3),
+            0 0 80px rgba(236, 72, 153, 0.2);
+        }
+      }
+
+      /* Subtle inner glow for text elements */
+      .ai-processing input,
+      .ai-processing textarea,
+      .ai-processing [contenteditable] {
+        background: linear-gradient(45deg, 
+          rgba(99, 102, 241, 0.05), 
+          rgba(139, 92, 246, 0.05),
+          rgba(236, 72, 153, 0.05)
+        );
+      }
+
+      /* Optional: Add shimmer effect for extra flair */
+      .ai-processing-shimmer::before {
+        background: linear-gradient(
+          90deg,
+          transparent 0%,
+          rgba(255, 255, 255, 0.4) 50%,
+          transparent 100%
+        );
+        animation: ai-shimmer 2s ease-in-out infinite;
+      }
+
+      @keyframes ai-shimmer {
+        0% {
+          transform: translateX(-100%);
+        }
+        100% {
+          transform: translateX(100%);
+        }
+      }
     `
