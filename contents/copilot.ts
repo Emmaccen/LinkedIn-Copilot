@@ -1,9 +1,14 @@
 import type { PlasmoCSConfig } from "plasmo"
 
 import { generateReply } from "~lib/ai-copilot"
-import { AiCommentSystemMessage } from "~static-data"
+import {
+  AiCommentSystemMessage,
+  AiDmChatSystemMessage,
+  AiSingleDmSystemMessage
+} from "~static-data"
 import { linkedInCopilotStyles } from "~styles"
 import type {
+  AiDMChatMessage,
   ContextType,
   DropdownAction,
   NotificationType,
@@ -14,6 +19,9 @@ import type {
   UserSettings
 } from "~types"
 
+import { messageExtractor } from "./LinkedInMessageExtractor"
+import { linkedInTyping } from "./TypingSimulator"
+
 export const config: PlasmoCSConfig = {
   matches: ["https://*.linkedin.com/*"],
   all_frames: false
@@ -21,14 +29,15 @@ export const config: PlasmoCSConfig = {
 
 class LinkedinCopilot {
   private templates: Record<string, TemplateCategory>
-  private settings: UserSettings
+  private userSettings: UserSettings
   private activeDropdowns: Set<HTMLElement> = new Set()
   private observer: MutationObserver
   private userDetails: UserDetails
+  private messageObserver: MutationObserver
 
   constructor() {
     this.templates = {}
-    this.settings = {
+    this.userSettings = {
       typingDelay: 40,
       enableTypingSimulation: true
     }
@@ -41,6 +50,9 @@ class LinkedinCopilot {
     this.setupDropdownObserver()
     this.injectStyles()
     this.scanForInputs()
+    this.messageObserver = messageExtractor.watchForNewMessages(
+      (message, replyButton) => this.AiReplySingleDM(message, replyButton)
+    )
   }
 
   private reloadSettingsOnStorageUpdate = () => {
@@ -54,6 +66,36 @@ class LinkedinCopilot {
           this.loadSettings()
     })
   }
+
+  private AiReplySingleDM = (
+    message: AiDMChatMessage,
+    replyButton: Element
+  ) => {
+    replyButton.addEventListener("click", (e) => {
+      e.preventDefault()
+
+      const dmContainer = this.findTopLevelContainer(
+        message.element as HTMLElement,
+        (element) =>
+          !!element.querySelector(
+            ".msg-form__contenteditable[contenteditable='true']"
+          )
+      )
+      if (!dmContainer) return
+
+      const dmInput = dmContainer.querySelector(
+        ".msg-form__contenteditable[contenteditable='true']"
+      ) as HTMLElement
+      if (!dmInput) return
+      const loaderContainer = dmInput.closest(
+        ".msg-form__msg-content-container--scrollable"
+      ) as HTMLElement
+      this.startAiProcessing(loaderContainer)
+      this.handleSingleDmMessageAIReply(dmInput, message.text).finally(() => {
+        this.stopAiProcessing(loaderContainer)
+      })
+    })
+  }
   private async loadSettings(): Promise<void> {
     try {
       const result = await chrome.storage.local.get([
@@ -61,9 +103,9 @@ class LinkedinCopilot {
         "userSettings",
         "userDetails"
       ])
-      this.settings = {
-        ...this.settings,
-        ...(result.settings ? JSON.parse(result.settings) : {})
+      this.userSettings = {
+        ...this.userSettings,
+        ...(result.userSettings ? JSON.parse(result.userSettings) : {})
       }
       this.userDetails = result.userDetails
         ? JSON.parse(result.userDetails)
@@ -95,7 +137,6 @@ class LinkedinCopilot {
           mutation.addedNodes.forEach((node) => {
             if (node.nodeType === Node.ELEMENT_NODE) {
               const element = node as Element
-
               // Scan for inputs
               this.scanForInputs(element)
             }
@@ -126,6 +167,13 @@ class LinkedinCopilot {
         el.getAttribute("data-placeholder")?.toLowerCase().includes(text)
       )
     )
+
+    const dmBoxes = container.querySelectorAll(
+      ".msg-form__contenteditable[contenteditable='true']"
+    )
+    if (dmBoxes.length > 0) {
+      this.attachPilotToDmBoxes(dmBoxes[0] as HTMLElement, "dm")
+    }
 
     commentBoxes.forEach((box) =>
       this.attachDropdown(box as HTMLElement, "feed")
@@ -187,13 +235,30 @@ class LinkedinCopilot {
     // })
   }
 
+  private attachPilotToDmBoxes = (
+    inputElement: HTMLElement,
+    context: ContextType
+  ): void => {
+    if (inputElement.hasAttribute("data-copilot-attached")) return
+
+    inputElement.setAttribute("data-copilot-attached", "true")
+
+    const dropdown = this.createDropdown(context, inputElement)
+
+    const inputContainer = inputElement.closest(
+      ".msg-form__msg-content-container"
+    ) as HTMLElement
+
+    inputContainer.insertAdjacentElement("afterend", dropdown)
+  }
+
   private createDropdown(
     context: ContextType,
     inputElement: HTMLElement
   ): HTMLElement {
     const dropdown = document.createElement("div")
     dropdown.className = "copilot-dropdown"
-    dropdown.style.display = "none"
+    // dropdown.style.display = "none"
 
     const actions = this.getActionsForContext(context)
 
@@ -222,6 +287,15 @@ class LinkedinCopilot {
     dropdown.appendChild(capsuleContainer)
 
     return dropdown
+  }
+
+  private startAiProcessing(element: HTMLElement): void {
+    if (element) element.classList.add("ai-processing", "ai-processing-shimmer")
+  }
+
+  private stopAiProcessing(element: HTMLElement): void {
+    if (element)
+      element.classList.remove("ai-processing", "ai-processing-shimmer")
   }
 
   private getActionsForContext(context: ContextType): DropdownAction[] {
@@ -264,6 +338,23 @@ class LinkedinCopilot {
       }
     }
 
+    if (context === "dm") {
+      baseActions.push({
+        id: "ai-reply",
+        label: "Reply with AI",
+        icon: "",
+        category: "ai"
+      })
+      for (const [group] of Object.entries(sectionTemplate()["dm"] ?? {})) {
+        baseActions.push({
+          id: `template-${group}`,
+          label: `Reply with ${group}`,
+          icon: this.templates[group].icon,
+          category: group
+        })
+      }
+    }
+
     return baseActions
   }
 
@@ -279,7 +370,7 @@ class LinkedinCopilot {
           await this.handleAIReply(inputElement, context)
         }
       } else {
-        await this.handleTemplateReply(action.category, inputElement)
+        await this.handleTemplateReply(action.category, inputElement, context)
       }
     } catch (error) {
       console.error("Error handling dropdown action:", error)
@@ -302,39 +393,91 @@ class LinkedinCopilot {
     return contentElement?.textContent?.trim() || ""
   }
 
+  private async handleSingleDmMessageAIReply(
+    inputElement: HTMLElement,
+    DmMessage: string
+  ): Promise<void> {
+    try {
+      linkedInTyping.setMessage("", inputElement)
+
+      const stream = await generateReply({
+        message: DmMessage,
+        systemMessage: AiSingleDmSystemMessage({
+          personalInfo: this.userDetails
+        })
+      })
+      let reply = ""
+      for await (const chunk of stream) {
+        reply += chunk.choices[0]?.delta?.content || ""
+      }
+      linkedInTyping.setMessage(reply, inputElement)
+    } catch (error) {
+      console.log(error)
+      this.showNotification("AI service unavailable", "error")
+    }
+  }
   private async handleAIReply(
     inputElement: HTMLElement,
     context: ContextType
   ): Promise<void> {
-    this.showNotification("Generating AI reply...", "info")
+    if (context === "dm") {
+      try {
+        const loaderContainer = inputElement.closest(
+          ".msg-form__msg-content-container--scrollable"
+        ) as HTMLElement
+        this.updateUsageStats("ai-dm-reply")
+        this.startAiProcessing(loaderContainer)
+        const chatContext = messageExtractor.getChatContextForAI()
 
-    // Extract post content for context
-    const postContent = this.extractPostContent(inputElement)
-    const userInfo = this.extractUserInfo(inputElement)
+        linkedInTyping.setMessage("", inputElement)
 
-    try {
-      this.setInputValue("", inputElement)
-      const stream = await generateReply({
-        message: postContent,
-        systemMessage: AiCommentSystemMessage({
-          linkedInPostUserInfo: userInfo,
-          personalInfo: this.userDetails,
-          context
+        const stream = await generateReply({
+          message: chatContext,
+          systemMessage: AiDmChatSystemMessage({
+            personalInfo: this.userDetails
+          })
         })
-      })
-      for await (const chunk of stream) {
-        this.setInputValue(
-          chunk.choices[0]?.delta?.content || "",
-          inputElement,
-          true
-        )
+        let reply = ""
+        for await (const chunk of stream) {
+          reply += chunk.choices[0]?.delta?.content || ""
+        }
+        linkedInTyping.setMessage(reply, inputElement)
+        this.stopAiProcessing(loaderContainer)
+      } catch (error) {
+        this.showNotification("AI service unavailable", "error")
       }
+    } else {
+      // Extract post content for context
+      const postContent = this.extractPostContent(inputElement)
+      const userInfo = this.extractUserInfo(inputElement)
 
-      this.showNotification("AI reply generated!", "success")
-      this.updateUsageStats("ai")
-    } catch (error) {
-      console.log(error)
-      this.showNotification("AI service unavailable", "error")
+      try {
+        this.setInputValue("", inputElement)
+        const loaderContainer = inputElement.closest(
+          ".comments-comment-texteditor"
+        ) as HTMLElement
+        this.startAiProcessing(loaderContainer)
+        const stream = await generateReply({
+          message: postContent,
+          systemMessage: AiCommentSystemMessage({
+            linkedInPostUserInfo: userInfo,
+            personalInfo: this.userDetails,
+            context
+          })
+        })
+        for await (const chunk of stream) {
+          this.setInputValue(
+            chunk.choices[0]?.delta?.content || "",
+            inputElement,
+            true
+          )
+        }
+        this.stopAiProcessing(loaderContainer)
+        this.updateUsageStats("ai")
+      } catch (error) {
+        console.log(error)
+        this.showNotification("AI service unavailable", "error")
+      }
     }
   }
 
@@ -366,7 +509,8 @@ class LinkedinCopilot {
 
   private async handleTemplateReply(
     category: string,
-    inputElement: HTMLElement
+    inputElement: HTMLElement,
+    context: ContextType
   ): Promise<void> {
     if (
       this.templates[category].active &&
@@ -393,10 +537,17 @@ class LinkedinCopilot {
     const userInfo = this.extractUserInfo(inputElement)
     const message = this.processTemplate(selectedTemplate.message, userInfo)
 
-    if (this.settings.enableTypingSimulation) {
-      await this.typeMessage(message, inputElement)
+    if (this.userSettings.enableTypingSimulation) {
+      if (context === "dm")
+        await linkedInTyping.simulateTyping(
+          message,
+          inputElement,
+          this.userSettings
+        )
+      else await this.typeMessage(message, inputElement)
     } else {
-      this.setInputValue(message, inputElement)
+      if (context === "dm") linkedInTyping.setMessage(message, inputElement)
+      else this.setInputValue(message, inputElement)
     }
     this.updateUsageStats(category)
   }
@@ -456,7 +607,7 @@ class LinkedinCopilot {
       i++
 
       if (i < message.length) {
-        setTimeout(typeChar, this.settings.typingDelay)
+        setTimeout(typeChar, this.userSettings.typingDelay)
       }
     }
 
@@ -526,6 +677,7 @@ class LinkedinCopilot {
     this.observer?.disconnect()
     this.activeDropdowns.forEach((dropdown) => dropdown.remove())
     this.activeDropdowns.clear()
+    this.messageObserver.disconnect()
   }
 }
 
