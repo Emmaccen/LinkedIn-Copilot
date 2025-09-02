@@ -60,4 +60,18 @@ export interface UsageStats {
   }
 }
 
+export interface AiDMChatMessage {
+  sender: string
+  text: string
+  timestamp: string
+  isOtherPerson: boolean
+  element: Element
+}
+
+export interface AiDMChatContext {
+  messages: AiDMChatMessage[]
+  totalCharacters: number
+  truncated: boolean
+}
+
 export type ContextType = "feed" | "dm" | "connection" | "post"

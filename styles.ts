@@ -12,13 +12,14 @@ export const linkedInCopilotStyles = `
         padding: 12px 16px;
         border-radius: 30px;
         cursor: pointer;
-        border: 1px solid #ffffff66;
+        border: 1px solid currentColor;
         transition: background-color 0.2s ease;
         white-space: nowrap;
       }
         .copilot-capsule-ai {
           background: linear-gradient(163deg, #3c52d0 0%, #544067 100%);
-       border: none;
+          border: none;
+          color: #fff;
 
         }
       
@@ -63,13 +64,16 @@ export const linkedInCopilotStyles = `
       }
 
       .aiDirectDmReplyButton {
-        margin-top: 5px;
+        margin: 5px 5px 0px auto;
         padding: 12px 16px;
         cursor: pointer;
-        border: 1px solid #ffffff66;
         transition: background-color 0.2s ease;
         white-space: nowrap;
-        color: inherit;
+        color: #fff;
+        width: fit-content;
+        border-radius: 11px;
+        font-size: 12px;
+        background: linear-gradient(163deg, #3c52d0 0%, #544067 100%);
       }
 
       /* AI Processing Animation */

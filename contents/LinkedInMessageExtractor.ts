@@ -129,7 +129,7 @@ class LinkedInMessageExtractor {
     )
     let ele = document.createElement("button")
     ele.classList.add("aiDirectDmReplyButton")
-    ele.innerText = "Ai Reply"
+    ele.innerText = "Reply with AI"
     if (isOtherPerson) {
       element.insertAdjacentElement("beforeend", ele)
       element.setAttribute("data-copilot-reply-attached", "true")
