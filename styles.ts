@@ -150,15 +150,15 @@ export const linkedInCopilotStyles = `
       }
 
       /* Subtle inner glow for text elements */
-      .ai-processing input,
-      .ai-processing textarea,
-      .ai-processing [contenteditable] {
-        background: linear-gradient(45deg, 
-          rgba(99, 102, 241, 0.05), 
-          rgba(139, 92, 246, 0.05),
-          rgba(236, 72, 153, 0.05)
-        );
-      }
+      // .ai-processing input,
+      // .ai-processing textarea,
+      // .ai-processing [contenteditable] {
+      //   background: linear-gradient(45deg, 
+      //     rgba(99, 102, 241, 0.05), 
+      //     rgba(139, 92, 246, 0.05),
+      //     rgba(236, 72, 153, 0.05)
+      //   );
+      // }
 
       /* Optional: Add shimmer effect for extra flair */
       .ai-processing-shimmer::before {
@@ -179,4 +179,23 @@ export const linkedInCopilotStyles = `
           transform: translateX(100%);
         }
       }
+
+        .writeWithAiTip {
+        background: -webkit-linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        display: inline-flex;
+        gap: 4px;
+        align-items: center;
+        margin: 0 0 15px;
+      }
+      .writeWithAiButton {
+        border: 1px solid #667eea;
+        border-radius: 10px;
+        padding: 5px 10px;
+        font-size: 14px;
+        font-weight: 500;
+        cursor: pointer;
+        white-space: nowrap;
+        }
     `

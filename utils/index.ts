@@ -152,8 +152,6 @@ export async function decryptApiKey(cipherText: string): Promise<string> {
     const iv = base64ToBuffer(payload.iv)
     const data = base64ToBuffer(payload.data)
 
-    console.log("IV length:", iv.length, "Data length:", data.length)
-
     const decrypted = await crypto.subtle.decrypt(
       { name: "AES-GCM", iv },
       key,

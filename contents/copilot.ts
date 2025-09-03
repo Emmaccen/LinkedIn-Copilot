@@ -1,10 +1,11 @@
 import type { PlasmoCSConfig } from "plasmo"
 
-import { generateReply } from "~lib/ai-copilot"
+import { createLinkedInPostWithAi, generateReply } from "~lib/ai-copilot"
 import {
   AiCommentSystemMessage,
   AiDmChatSystemMessage,
-  AiSingleDmSystemMessage
+  AiSingleDmSystemMessage,
+  aiWritingStyleSystemMessage
 } from "~static-data"
 import { linkedInCopilotStyles } from "~styles"
 import type {
@@ -65,6 +66,92 @@ class LinkedinCopilot {
         )
           this.loadSettings()
     })
+  }
+
+  private attachWritePostWithAiUI = (element: Element) => {
+    // Check specifically for post dialog
+    const postDialog = element.classList.contains("share-box")
+
+    if (postDialog) {
+      const postContainer = element
+      const postInputBox = postContainer.querySelector(
+        ".ql-editor[role='textbox']"
+      )
+      const writeWithAiTip = document.createElement("div")
+      writeWithAiTip.innerHTML = `
+                <div class="writeWithAiTip">
+                  <p class="">Linkedin Copilot is enabled, describe your post and click the "Pilot Button" to generate/edit content</p>
+                  <button class="writeWithAiButton">Pilot ✨</button>
+                </div>
+                `
+      const writeWithAiButtonAction = writeWithAiTip.querySelector(
+        ".writeWithAiButton"
+      ) as HTMLButtonElement
+      writeWithAiButtonAction.addEventListener("click", async (e) => {
+        e.preventDefault()
+        await this.writeFeedPostWithAi()
+      })
+      if (postInputBox) {
+        postInputBox.parentElement.insertBefore(writeWithAiTip, postInputBox)
+      }
+    }
+  }
+
+  private convertTextToHtml(text: string): string {
+    // Split into paragraphs (with line breaks)
+    const paragraphs = text.split(/\n\s*\n/)
+    return paragraphs
+      .map((paragraph) => `<p>${paragraph}</p><p><br></p>`)
+      .join("")
+  }
+  private async writeFeedPostWithAi(): Promise<void> {
+    // share-creation-state__text-editor
+    const postContainer = document.querySelector(".share-box") as HTMLElement
+    if (!postContainer) return
+    this.startAiProcessing(postContainer)
+    const inputElement = postContainer.querySelector(
+      ".ql-editor[role='textbox']"
+    ) as HTMLElement
+
+    if (!inputElement) {
+      this.stopAiProcessing(postContainer)
+      return this.showNotification("Post input not found", "error")
+    }
+
+    const textContent = inputElement?.textContent?.trim() || ""
+    if (!textContent) {
+      this.stopAiProcessing(postContainer)
+      return this.showNotification("Post content is empty", "warning")
+    }
+
+    try {
+      const stream = await createLinkedInPostWithAi({
+        message: textContent,
+        systemMessage: aiWritingStyleSystemMessage({
+          personalInfo: this.userDetails
+        })
+      })
+      this.setInputValue("", inputElement)
+      let finalOutput = ""
+      for await (const chunk of stream) {
+        finalOutput += chunk.choices[0]?.delta?.content || ""
+        this.setInputValue(
+          chunk.choices[0]?.delta?.content || "",
+          inputElement,
+          true
+        )
+      }
+
+      // For contenteditable elements (like LinkedIn's post composer)
+      const htmlMessage = this.convertTextToHtml(finalOutput)
+      this.setInputValue(htmlMessage, inputElement, false)
+
+      this.stopAiProcessing(postContainer)
+      this.updateUsageStats("ai-post-generated")
+    } catch (error) {
+      this.showNotification("AI service unavailable", "error")
+      this.stopAiProcessing(postContainer)
+    }
   }
 
   private AiReplySingleDM = (
@@ -139,6 +226,7 @@ class LinkedinCopilot {
               const element = node as Element
               // Scan for inputs
               this.scanForInputs(element)
+              this.attachWritePostWithAiUI(element)
             }
           })
         }
@@ -658,18 +746,19 @@ class LinkedinCopilot {
     }, 3000)
   }
 
-  private updateUsageStats(category: string): void {
+  private async updateUsageStats(category: string): Promise<void> {
     const today = new Date().toDateString()
-    chrome.storage.local.get(["usageStats"], (result) => {
-      const stats: UsageStats = JSON.parse(result.usageStats) || {}
-      if (!stats[today]) stats[today] = {}
-      if (!stats[today][category]) stats[today][category] = 0
+    let currentUsageStats = await chrome.storage.local.get(["usageStats"])
+    const stats: UsageStats = currentUsageStats.usageStats
+      ? currentUsageStats.usageStats
+      : {}
+    if (!stats[today]) stats[today] = {}
+    if (!stats[today][category]) stats[today][category] = 0
 
-      stats[today][category]++
-      stats[today].total = (stats[today].total || 0) + 1
+    stats[today][category]++
+    stats[today].total = (stats[today].total || 0) + 1
 
-      chrome.storage.local.set({ usageStats: stats })
-    })
+    chrome.storage.local.set({ usageStats: stats })
   }
 
   // Cleanup on unload
