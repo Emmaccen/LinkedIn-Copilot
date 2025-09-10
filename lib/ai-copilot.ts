@@ -98,6 +98,34 @@ export async function getGroqChatStream({
   })
 }
 
+export async function createLinkedInPostWithAi({
+  message,
+  systemMessage
+}: PromptType) {
+  const groq = await groqInstance.getInstance()
+  return await groq.chat.completions.create({
+    messages: [
+      {
+        role: "system",
+        content: systemMessage
+      },
+      {
+        role: "user",
+        content: message
+      }
+    ],
+    model: "llama-3.3-70b-versatile",
+
+    // The maximum number of tokens to generate. Requests can use up to
+    // 2048 tokens shared between prompt and completion.
+    max_completion_tokens: 1024,
+
+    stop: null,
+
+    stream: true
+  })
+}
+
 /**
  * NOTES FROM LUCIUS EMMANUEL
  * If you ever wonder how long you can use your free-tier API key, you can check the limits at https://console.groq.com/docs/rate-limits
