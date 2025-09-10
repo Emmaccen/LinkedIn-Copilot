@@ -1,6 +1,7 @@
 import type { PlasmoCSConfig } from "plasmo"
 
 import { createLinkedInPostWithAi, generateReply } from "~lib/ai-copilot"
+import Analytics from "~lib/analytics"
 import {
   AiCommentSystemMessage,
   AiDmChatSystemMessage,
@@ -8,16 +9,17 @@ import {
   aiWritingStyleSystemMessage
 } from "~static-data"
 import { linkedInCopilotStyles } from "~styles"
-import type {
-  AiDMChatMessage,
-  ContextType,
-  DropdownAction,
-  NotificationType,
-  TemplateCategory,
-  UsageStats,
-  UserDetails,
-  UserInfo,
-  UserSettings
+import {
+  AnalyticsEventTypes,
+  type AiDMChatMessage,
+  type ContextType,
+  type DropdownAction,
+  type NotificationType,
+  type TemplateCategory,
+  type UsageStats,
+  type UserDetails,
+  type UserInfo,
+  type UserSettings
 } from "~types"
 
 import { messageExtractor } from "./LinkedInMessageExtractor"
@@ -35,6 +37,7 @@ class LinkedinCopilot {
   private observer: MutationObserver
   private userDetails: UserDetails
   private messageObserver: MutationObserver
+  private UserAnalytics: typeof Analytics
 
   constructor() {
     this.templates = {}
@@ -43,6 +46,7 @@ class LinkedinCopilot {
       enableTypingSimulation: true
     }
     this.init()
+    this.UserAnalytics = Analytics
   }
 
   private async init(): Promise<void> {
@@ -54,8 +58,14 @@ class LinkedinCopilot {
     this.messageObserver = messageExtractor.watchForNewMessages(
       (message, replyButton) => this.AiReplySingleDM(message, replyButton)
     )
+    this.unloadOnDestroy()
   }
-
+  // run destroy to unload when user closes tab
+  private unloadOnDestroy = () => {
+    window.addEventListener("unload", () => {
+      this.destroy()
+    })
+  }
   private reloadSettingsOnStorageUpdate = () => {
     chrome.storage.onChanged.addListener((changes, namespace) => {
       if (namespace === "local")
@@ -147,10 +157,29 @@ class LinkedinCopilot {
       this.setInputValue(htmlMessage, inputElement, false)
 
       this.stopAiProcessing(postContainer)
-      this.updateUsageStats("ai-post-generated")
+      chrome.runtime.sendMessage(
+        {
+          type: AnalyticsEventTypes.GA_EVENT,
+          eventName: AnalyticsEventTypes.AI_POST_CREATED,
+          eventParams: undefined
+        },
+        (response) => {
+          // console.log("received response: ", response)
+        }
+      )
     } catch (error) {
       this.showNotification("AI service unavailable", "error")
       this.stopAiProcessing(postContainer)
+      chrome.runtime.sendMessage(
+        {
+          type: AnalyticsEventTypes.GA_ERROR_EVENT,
+          eventName: AnalyticsEventTypes.AI_POST_CREATED,
+          eventParams: undefined
+        },
+        (response) => {
+          // console.log("received response: ", response)
+        }
+      )
     }
   }
 
@@ -451,18 +480,17 @@ class LinkedinCopilot {
     inputElement: HTMLElement,
     context: ContextType
   ): Promise<void> {
-    try {
-      if (action.category === "ai") {
-        if (action.id === "ai-reply") {
-          // Handle AI reply for feed or DM
-          await this.handleAIReply(inputElement, context)
+    if (action.category === "ai") {
+      if (action.id === "ai-reply") {
+        // Handle AI reply for feed or DM
+        if (context === "dm") {
+          await this.handleAIChatHistoryReply(inputElement)
+        } else {
+          await this.ReplyPostCommentWithAI(inputElement, context)
         }
-      } else {
-        await this.handleTemplateReply(action.category, inputElement, context)
       }
-    } catch (error) {
-      console.error("Error handling dropdown action:", error)
-      this.showNotification("Failed to generate reply", error)
+    } else {
+      await this.handleTemplateReply(action.category, inputElement, context)
     }
   }
 
@@ -499,73 +527,132 @@ class LinkedinCopilot {
         reply += chunk.choices[0]?.delta?.content || ""
       }
       linkedInTyping.setMessage(reply, inputElement)
+      chrome.runtime.sendMessage(
+        {
+          type: AnalyticsEventTypes.GA_EVENT,
+          eventName: AnalyticsEventTypes.AI_DM_SINGLE_REPLY_CREATED,
+          eventParams: undefined
+        },
+        (response) => {
+          // console.log("received response: ", response)
+        }
+      )
     } catch (error) {
       console.log(error)
       this.showNotification("AI service unavailable", "error")
+      chrome.runtime.sendMessage(
+        {
+          type: AnalyticsEventTypes.GA_ERROR_EVENT,
+          eventName: AnalyticsEventTypes.AI_DM_SINGLE_REPLY_CREATED,
+          eventParams: undefined
+        },
+        (response) => {
+          // console.log("received response: ", response)
+        }
+      )
     }
   }
-  private async handleAIReply(
+  private async handleAIChatHistoryReply(
+    inputElement: HTMLElement
+  ): Promise<void> {
+    try {
+      const loaderContainer = inputElement.closest(
+        ".msg-form__msg-content-container--scrollable"
+      ) as HTMLElement
+      this.startAiProcessing(loaderContainer)
+      const chatContext = messageExtractor.getChatContextForAI()
+
+      linkedInTyping.setMessage("", inputElement)
+
+      const stream = await generateReply({
+        message: chatContext,
+        systemMessage: AiDmChatSystemMessage({
+          personalInfo: this.userDetails
+        })
+      })
+      let reply = ""
+      for await (const chunk of stream) {
+        reply += chunk.choices[0]?.delta?.content || ""
+      }
+      linkedInTyping.setMessage(reply, inputElement)
+      this.stopAiProcessing(loaderContainer)
+      chrome.runtime.sendMessage(
+        {
+          type: AnalyticsEventTypes.GA_EVENT,
+          eventName: AnalyticsEventTypes.AI_DM_CHAT_HISTORY_REPLY_CREATED,
+          eventParams: undefined
+        },
+        (response) => {
+          // console.log("received response: ", response)
+        }
+      )
+    } catch (error) {
+      this.showNotification("AI service unavailable", "error")
+      chrome.runtime.sendMessage(
+        {
+          type: AnalyticsEventTypes.GA_ERROR_EVENT,
+          eventName: AnalyticsEventTypes.AI_DM_CHAT_HISTORY_REPLY_CREATED,
+          eventParams: undefined
+        },
+        (response) => {
+          // console.log("received response: ", response)
+        }
+      )
+    }
+  }
+  private async ReplyPostCommentWithAI(
     inputElement: HTMLElement,
     context: ContextType
   ): Promise<void> {
-    if (context === "dm") {
-      try {
-        const loaderContainer = inputElement.closest(
-          ".msg-form__msg-content-container--scrollable"
-        ) as HTMLElement
-        this.updateUsageStats("ai-dm-reply")
-        this.startAiProcessing(loaderContainer)
-        const chatContext = messageExtractor.getChatContextForAI()
+    // Extract post content for context
+    const postContent = this.extractPostContent(inputElement)
+    const userInfo = this.extractUserInfo(inputElement)
 
-        linkedInTyping.setMessage("", inputElement)
-
-        const stream = await generateReply({
-          message: chatContext,
-          systemMessage: AiDmChatSystemMessage({
-            personalInfo: this.userDetails
-          })
+    try {
+      this.setInputValue("", inputElement)
+      const loaderContainer = inputElement.closest(
+        ".comments-comment-texteditor"
+      ) as HTMLElement
+      this.startAiProcessing(loaderContainer)
+      const stream = await generateReply({
+        message: postContent,
+        systemMessage: AiCommentSystemMessage({
+          linkedInPostUserInfo: userInfo,
+          personalInfo: this.userDetails,
+          context
         })
-        let reply = ""
-        for await (const chunk of stream) {
-          reply += chunk.choices[0]?.delta?.content || ""
-        }
-        linkedInTyping.setMessage(reply, inputElement)
-        this.stopAiProcessing(loaderContainer)
-      } catch (error) {
-        this.showNotification("AI service unavailable", "error")
+      })
+      for await (const chunk of stream) {
+        this.setInputValue(
+          chunk.choices[0]?.delta?.content || "",
+          inputElement,
+          true
+        )
       }
-    } else {
-      // Extract post content for context
-      const postContent = this.extractPostContent(inputElement)
-      const userInfo = this.extractUserInfo(inputElement)
-
-      try {
-        this.setInputValue("", inputElement)
-        const loaderContainer = inputElement.closest(
-          ".comments-comment-texteditor"
-        ) as HTMLElement
-        this.startAiProcessing(loaderContainer)
-        const stream = await generateReply({
-          message: postContent,
-          systemMessage: AiCommentSystemMessage({
-            linkedInPostUserInfo: userInfo,
-            personalInfo: this.userDetails,
-            context
-          })
-        })
-        for await (const chunk of stream) {
-          this.setInputValue(
-            chunk.choices[0]?.delta?.content || "",
-            inputElement,
-            true
-          )
+      this.stopAiProcessing(loaderContainer)
+      chrome.runtime.sendMessage(
+        {
+          type: AnalyticsEventTypes.GA_EVENT,
+          eventName: AnalyticsEventTypes.POST_COMMENT_CREATED,
+          eventParams: undefined
+        },
+        (response) => {
+          // console.log("received response: ", response)
         }
-        this.stopAiProcessing(loaderContainer)
-        this.updateUsageStats("ai")
-      } catch (error) {
-        console.log(error)
-        this.showNotification("AI service unavailable", "error")
-      }
+      )
+    } catch (error) {
+      console.log(error)
+      this.showNotification("AI service unavailable", "error")
+      chrome.runtime.sendMessage(
+        {
+          type: AnalyticsEventTypes.GA_ERROR_EVENT,
+          eventName: AnalyticsEventTypes.POST_COMMENT_CREATED,
+          eventParams: undefined
+        },
+        (response) => {
+          // console.log("received response: ", response)
+        }
+      )
     }
   }
 
@@ -609,35 +696,61 @@ class LinkedinCopilot {
         "warning"
       )
 
-    const template: TemplateCategory = this.templates[category]
+    try {
+      const template: TemplateCategory = this.templates[category]
 
-    template.templates = template.templates.filter(
-      (template) => template.active
-    )
+      template.templates = template.templates.filter(
+        (template) => template.active
+      )
 
-    // For now, we'll use random selection
-    // TODO: Implement template selection dropdown for better UX
-    const selectedTemplate =
-      template.templates[Math.floor(Math.random() * template.templates.length)]
+      // For now, I'll use random selection
+      // TODO: Implement template selection dropdown for better UX
+      const selectedTemplate =
+        template.templates[
+          Math.floor(Math.random() * template.templates.length)
+        ]
 
-    this.showNotification(`Using "${category}" template...`, "info")
+      this.showNotification(`Using "${category}" template...`, "info")
 
-    const userInfo = this.extractUserInfo(inputElement)
-    const message = this.processTemplate(selectedTemplate.message, userInfo)
+      const userInfo = this.extractUserInfo(inputElement)
+      const message = this.processTemplate(selectedTemplate.message, userInfo)
 
-    if (this.userSettings.enableTypingSimulation) {
-      if (context === "dm")
-        await linkedInTyping.simulateTyping(
-          message,
-          inputElement,
-          this.userSettings
-        )
-      else await this.typeMessage(message, inputElement)
-    } else {
-      if (context === "dm") linkedInTyping.setMessage(message, inputElement)
-      else this.setInputValue(message, inputElement)
+      if (this.userSettings.enableTypingSimulation) {
+        if (context === "dm")
+          await linkedInTyping.simulateTyping(
+            message,
+            inputElement,
+            this.userSettings
+          )
+        else await this.typeMessage(message, inputElement)
+      } else {
+        if (context === "dm") linkedInTyping.setMessage(message, inputElement)
+        else this.setInputValue(message, inputElement)
+      }
+      chrome.runtime.sendMessage(
+        {
+          type: AnalyticsEventTypes.GA_EVENT,
+          eventName: AnalyticsEventTypes.TEMPLATE_USED,
+          eventParams: undefined
+        },
+        (response) => {
+          // console.log("received response: ", response)
+        }
+      )
+    } catch (error) {
+      console.error("Error handling template reply:", error)
+      this.showNotification("Failed to apply template", "error")
+      chrome.runtime.sendMessage(
+        {
+          type: AnalyticsEventTypes.GA_ERROR_EVENT,
+          eventName: AnalyticsEventTypes.TEMPLATE_USED,
+          eventParams: undefined
+        },
+        (response) => {
+          // console.log("received response: ", response)
+        }
+      )
     }
-    this.updateUsageStats(category)
   }
 
   private showDropdown(dropdown: HTMLElement): void {
@@ -767,6 +880,8 @@ class LinkedinCopilot {
     this.activeDropdowns.forEach((dropdown) => dropdown.remove())
     this.activeDropdowns.clear()
     this.messageObserver.disconnect()
+    chrome.storage.local.remove("sessionData")
+    console.log("LinkedIn Copilot destroyed")
   }
 }
 
