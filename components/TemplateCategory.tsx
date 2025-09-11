@@ -12,12 +12,12 @@ export const TemplateCategoryManager = () => {
     icon: ""
   })
 
-  const addNewCategory = () => {
+  const addNewCategory = async () => {
     if (!newCategory.icon.trim() && !newCategory.name.trim()) {
       return
     }
     const previousTemplates =
-      loadFromLocalStorage<Record<string, TemplateCategory>>("templates")
+      await loadFromLocalStorage<Record<string, TemplateCategory>>("templates")
     if (previousTemplates) {
       const updatedTemplates = {
         ...previousTemplates
