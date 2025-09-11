@@ -28,10 +28,7 @@ export const templatesFileSchema: z.ZodType<Record<string, TemplateCategory>> =
   z.record(z.string(), templateCategorySchema)
 
 export const ImportExportTemplate = () => {
-  const { pushNotification } = useGlobalState()
-  const [templates, setTemplates] = useState<Record<string, TemplateCategory>>(
-    {}
-  )
+  const { pushNotification, templates } = useGlobalState()
   // File upload handler
   const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files[0]
@@ -54,7 +51,6 @@ export const ImportExportTemplate = () => {
         }
         // Merge with existing templates
         const mergedTemplates = { ...templates, ...validated.data }
-        setTemplates(mergedTemplates)
         saveToLocalStorage<Record<string, TemplateCategory>>(
           "templates",
           mergedTemplates
