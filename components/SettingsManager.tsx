@@ -106,6 +106,8 @@ function Toggle({
 export function SettingsManager() {
   const { userDetails, userSettings, pushNotification, theme, setTheme } =
     useGlobalState()
+  const [userDetailsLocal, setUserDetailsLocal] =
+    useState<UserDetails>(userDetails)
 
   const [apiKey, setApiKey] = useState("")
 
@@ -192,13 +194,13 @@ export function SettingsManager() {
               </label>
               <input
                 type="text"
-                value={userDetails.fullName}
+                value={userDetailsLocal.fullName}
                 onChange={(e) => {
                   const updatedData = {
-                    ...userDetails,
+                    ...userDetailsLocal,
                     fullName: e.target.value
                   }
-                  saveToLocalStorage<UserDetails>("userDetails", updatedData)
+                  setUserDetailsLocal(updatedData)
                 }}
                 className="w-full px-3 py-2 border border-border bg-background rounded-lg text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-brand-blue focus:border-transparent"
               />
@@ -209,13 +211,13 @@ export function SettingsManager() {
               </label>
               <input
                 type="text"
-                value={userDetails.professionalTitle}
+                value={userDetailsLocal.professionalTitle}
                 onChange={(e) => {
                   const updatedData = {
-                    ...userDetails,
+                    ...userDetailsLocal,
                     professionalTitle: e.target.value
                   }
-                  saveToLocalStorage<UserDetails>("userDetails", updatedData)
+                  setUserDetailsLocal(updatedData)
                 }}
                 className="w-full px-3 py-2 border border-border bg-background rounded-lg text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-brand-blue focus:border-transparent"
               />
@@ -225,13 +227,13 @@ export function SettingsManager() {
                 Professional Summary
               </label>
               <textarea
-                value={userDetails.professionalSummary}
+                value={userDetailsLocal.professionalSummary}
                 onChange={(e) => {
                   const updatedData = {
-                    ...userDetails,
+                    ...userDetailsLocal,
                     professionalSummary: e.target.value
                   }
-                  saveToLocalStorage<UserDetails>("userDetails", updatedData)
+                  setUserDetailsLocal(updatedData)
                 }}
                 rows={4}
                 maxLength={500}
@@ -239,26 +241,37 @@ export function SettingsManager() {
                 placeholder="A brief summary about you..."
               />
             </div>
-          </div>
-          {/* <div className="flex justify-end mt-5">
-            <button
-              //   onClick={() => saveToStorage("userDetails", userDetails)}
-              className="flex gap-2 items-center px-4 py-2 bg-brand-blue text-white rounded-lg hover:bg-opacity-90 transition-colors focus:outline-none focus:ring-2 focus:ring-brand-blue focus:ring-offset-2">
-              <svg
-                className="h-4 w-4"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor">
-                <path
+            <div className="flex justify-end mt-5">
+              <button
+                onClick={async () => {
+                  if (!userDetailsLocal) return
+                  await saveToLocalStorage<UserDetails>(
+                    "userDetails",
+                    userDetailsLocal
+                  )
+
+                  pushNotification("user details updated", "success")
+                }}
+                className="flex gap-2 items-center px-4 py-2 bg-brand-blue text-white rounded-lg hover:bg-opacity-90 transition-colors focus:outline-none focus:ring-2 focus:ring-brand-blue focus:ring-offset-2">
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="24"
+                  height="24"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
                   strokeLinecap="round"
                   strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h8a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3-3m0 0l3-3m-3 3h12"
-                />
-              </svg>
-              Save Settings
-            </button>
-          </div> */}
+                  className="w-4 h-4">
+                  <path d="M15.2 3a2 2 0 0 1 1.4.6l3.8 3.8a2 2 0 0 1 .6 1.4V19a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z" />
+                  <path d="M17 21v-7a1 1 0 0 0-1-1H8a1 1 0 0 0-1 1v7" />
+                  <path d="M7 3v4a1 1 0 0 0 1 1h7" />
+                </svg>
+                Save Details
+              </button>
+            </div>
+          </div>
         </div>
 
         {/* API Key */}
