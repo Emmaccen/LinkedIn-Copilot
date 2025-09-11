@@ -215,7 +215,9 @@ function TemplateManager() {
                   leave="transition ease-in duration-100"
                   leaveFrom="opacity-100"
                   leaveTo="opacity-0">
-                  <ListboxOptions className="absolute z-10 mt-1 max-h-60 w-full overflow-auto rounded-lg bg-card border border-border shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none">
+                  <ListboxOptions
+                    anchor="top start"
+                    className="absolute z-10 mt-1 max-h-60 max-w-fit overflow-auto rounded-lg bg-card border border-border shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none">
                     {categories.map((category) => (
                       <ListboxOption
                         key={category}
@@ -251,6 +253,12 @@ function TemplateManager() {
               </div>
             </Listbox>
           </div>
+          {/* delete  */}
+          <button
+            onClick={() => handleDeleteCategory()}
+            className="text-destructive transition-colors focus:outline-none focus:ring-2 focus:ring-brand-blue focus:ring-offset-2 rounded-md p-1">
+            <TrashIcon className="h-4 w-4" />
+          </button>
 
           <div className="flex items-center gap-3">
             <Switch
