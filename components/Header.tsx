@@ -1,45 +1,57 @@
 import { Button } from "@headlessui/react"
 import { Download, Upload } from "lucide-react"
 import React, { useState } from "react"
-import { z } from "zod"
 
 import { useGlobalState } from "~store/GlobalContext"
 import type { Template, TemplateCategory } from "~types"
 import { saveToLocalStorage } from "~utils"
 
-const contextTypeSchema = z.enum(["feed", "dm", "connection", "post"])
+const createSchemas = async () => {
+  const { z } = await import("zod")
 
-const templateSchema: z.ZodType<Template> = z.object({
-  id: z.string().min(1, "Template id is required"),
-  message: z.string().min(1, "Message cannot be empty"),
-  aiGenerated: z.boolean(),
-  active: z.boolean(),
-  placeholders: z.array(z.string())
-})
+  const contextTypeSchema = z.enum(["feed", "dm", "connection", "post"])
 
-const templateCategorySchema: z.ZodType<TemplateCategory> = z.object({
-  active: z.boolean(),
-  context: z.array(contextTypeSchema).min(1, "Context array cannot be empty"),
-  icon: z.string().min(1, "Icon is required"),
-  templates: z.array(templateSchema).min(1, "At least one template is required")
-})
+  const templateSchema = z.object({
+    id: z.string().min(1, "Template id is required"),
+    message: z.string().min(1, "Message cannot be empty"),
+    aiGenerated: z.boolean(),
+    active: z.boolean(),
+    placeholders: z.array(z.string())
+  })
 
-export const templatesFileSchema: z.ZodType<Record<string, TemplateCategory>> =
-  z.record(z.string(), templateCategorySchema)
+  const templateCategorySchema = z.object({
+    active: z.boolean(),
+    context: z.array(contextTypeSchema).min(1, "Context array cannot be empty"),
+    icon: z.string().min(1, "Icon is required"),
+    templates: z
+      .array(templateSchema)
+      .min(1, "At least one template is required")
+  })
+
+  const templatesFileSchema = z.record(z.string(), templateCategorySchema)
+
+  return { templatesFileSchema }
+}
 
 export const ImportExportTemplate = () => {
   const { pushNotification, templates } = useGlobalState()
-  // File upload handler
-  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+
+  // File upload handler with dynamic import
+  const handleFileUpload = async (
+    event: React.ChangeEvent<HTMLInputElement>
+  ) => {
     const file = event.target.files[0]
     if (!file) return
 
     const reader = new FileReader()
-    reader.onload = (e) => {
+    reader.onload = async (e) => {
       try {
         const result = e.target.result
         const uploadedTemplates =
           typeof result === "string" ? JSON.parse(result) : {}
+
+        // Dynamically import and create schemas
+        const { templatesFileSchema } = await createSchemas()
 
         // Validate structure
         const validated = templatesFileSchema.safeParse(uploadedTemplates)
