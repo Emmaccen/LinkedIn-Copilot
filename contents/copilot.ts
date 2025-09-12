@@ -163,9 +163,7 @@ class LinkedinCopilot {
           eventName: AnalyticsEventTypes.AI_POST_CREATED,
           eventParams: undefined
         },
-        (response) => {
-          // console.log("received response: ", response)
-        }
+        (response) => {}
       )
     } catch (error) {
       this.showNotification("AI service unavailable", "error")
@@ -176,9 +174,7 @@ class LinkedinCopilot {
           eventName: AnalyticsEventTypes.AI_POST_CREATED,
           eventParams: undefined
         },
-        (response) => {
-          // console.log("received response: ", response)
-        }
+        (response) => {}
       )
     }
   }
@@ -533,9 +529,7 @@ class LinkedinCopilot {
           eventName: AnalyticsEventTypes.AI_DM_SINGLE_REPLY_CREATED,
           eventParams: undefined
         },
-        (response) => {
-          // console.log("received response: ", response)
-        }
+        (response) => {}
       )
     } catch (error) {
       console.log(error)
@@ -546,9 +540,7 @@ class LinkedinCopilot {
           eventName: AnalyticsEventTypes.AI_DM_SINGLE_REPLY_CREATED,
           eventParams: undefined
         },
-        (response) => {
-          // console.log("received response: ", response)
-        }
+        (response) => {}
       )
     }
   }
@@ -582,9 +574,7 @@ class LinkedinCopilot {
           eventName: AnalyticsEventTypes.AI_DM_CHAT_HISTORY_REPLY_CREATED,
           eventParams: undefined
         },
-        (response) => {
-          // console.log("received response: ", response)
-        }
+        (response) => {}
       )
     } catch (error) {
       this.showNotification("AI service unavailable", "error")
@@ -594,9 +584,7 @@ class LinkedinCopilot {
           eventName: AnalyticsEventTypes.AI_DM_CHAT_HISTORY_REPLY_CREATED,
           eventParams: undefined
         },
-        (response) => {
-          // console.log("received response: ", response)
-        }
+        (response) => {}
       )
     }
   }
@@ -636,9 +624,7 @@ class LinkedinCopilot {
           eventName: AnalyticsEventTypes.POST_COMMENT_CREATED,
           eventParams: undefined
         },
-        (response) => {
-          // console.log("received response: ", response)
-        }
+        (response) => {}
       )
     } catch (error) {
       console.log(error)
@@ -649,9 +635,7 @@ class LinkedinCopilot {
           eventName: AnalyticsEventTypes.POST_COMMENT_CREATED,
           eventParams: undefined
         },
-        (response) => {
-          // console.log("received response: ", response)
-        }
+        (response) => {}
       )
     }
   }
@@ -733,9 +717,7 @@ class LinkedinCopilot {
           eventName: AnalyticsEventTypes.TEMPLATE_USED,
           eventParams: undefined
         },
-        (response) => {
-          // console.log("received response: ", response)
-        }
+        (response) => {}
       )
     } catch (error) {
       console.error("Error handling template reply:", error)
@@ -746,9 +728,7 @@ class LinkedinCopilot {
           eventName: AnalyticsEventTypes.TEMPLATE_USED,
           eventParams: undefined
         },
-        (response) => {
-          // console.log("received response: ", response)
-        }
+        (response) => {}
       )
     }
   }
@@ -881,7 +861,7 @@ class LinkedinCopilot {
     this.activeDropdowns.clear()
     this.messageObserver.disconnect()
     chrome.storage.local.remove("sessionData")
-    console.log("LinkedIn Copilot destroyed")
+    console.log("LinkedIn Copilot session terminated")
   }
 }
 

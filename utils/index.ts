@@ -186,7 +186,6 @@ export async function saveEncryptedApiKey(apiKey: string): Promise<void> {
     await chrome.storage.local.set({
       [ENCRYPTED_API_KEY_NAME]: encryptedKey
     })
-    console.log("API key encrypted and saved successfully")
   } catch (error) {
     console.error("Failed to save encrypted API key:", error)
     throw error
@@ -198,7 +197,6 @@ export async function getDecryptedApiKey(): Promise<string | null> {
   try {
     const stored = await chrome.storage.local.get(ENCRYPTED_API_KEY_NAME)
     if (!stored[ENCRYPTED_API_KEY_NAME]) {
-      console.log("No encrypted API key found in storage")
       return null
     }
 

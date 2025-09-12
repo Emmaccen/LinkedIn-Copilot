@@ -65,7 +65,7 @@ export class Analytics {
     return sessionData.session_id
   }
 
-  // Get location info (cached for performance)
+  // Get location info (cached for performance and rate limiting)
   async getLocationInfo(): Promise<Partial<LocationInfo>> {
     try {
       const cached = await chrome.storage.local.get(["location_cache"])
@@ -79,7 +79,6 @@ export class Analytics {
 
       const response = await fetch("https://ipapi.co/json/")
       const locationData: Record<string, string> = await response.json()
-      console.log("Fetched location data:", locationData)
 
       const locationInfo = {
         country: locationData.country_name,
@@ -113,7 +112,6 @@ export class Analytics {
   // Get basic user info that Firebase would normally collect
   async getUserInfo(): Promise<GAUserInfo> {
     const locationInfo: Partial<LocationInfo> = await this.getLocationInfo()
-    console.log("Location info:", locationInfo)
     return {
       user_agent: navigator.userAgent,
       language: navigator.language,

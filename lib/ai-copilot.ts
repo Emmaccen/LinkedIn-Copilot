@@ -50,10 +50,10 @@ export const groqInstance = (() => {
 
 chrome.storage.onChanged.addListener(async (changes, namespace) => {
   if (namespace === "local" && changes[ENCRYPTED_API_KEY_NAME]) {
-    console.log("Encrypted API key changed, resetting Groq instance")
+    // console.log("Encrypted API key changed, resetting Groq instance")
     groqInstance.resetInstance()
     await groqInstance.createInstance()
-    console.log("Groq instance reset and recreated")
+    // console.log("Groq instance reset and recreated")
   }
 })
 
@@ -74,7 +74,6 @@ export async function getGroqChatStream({
     )
   }
 
-  console.log("Groq instance ready:", !!groq)
   return groq.chat.completions.create({
     messages: [
       {
