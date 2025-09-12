@@ -3,6 +3,7 @@ import { useEffect, useState } from "react"
 import { useGlobalState } from "~store/GlobalContext"
 import type { Theme, UserDetails, UserSettings } from "~types"
 import {
+  ENCRYPTION_KEY_NAME,
   loadFromLocalStorage,
   saveEncryptedApiKey,
   saveToLocalStorage
@@ -10,7 +11,6 @@ import {
 
 const hiddenKey = "***************************************"
 
-// Custom Toggle Switch Component
 function Toggle({
   checked,
   onChange,
@@ -41,68 +41,6 @@ function Toggle({
   )
 }
 
-// Custom Modal Component
-// function Modal({
-//   isOpen,
-//   onClose,
-//   title,
-//   children
-// }: {
-//   isOpen: boolean
-//   onClose: () => void
-//   title: string
-//   children: React.ReactNode
-// }) {
-//   useEffect(() => {
-//     if (isOpen) {
-//       document.body.style.overflow = "hidden"
-//     } else {
-//       document.body.style.overflow = "unset"
-//     }
-
-//     return () => {
-//       document.body.style.overflow = "unset"
-//     }
-//   }, [isOpen])
-
-//   if (!isOpen) return null
-
-//   return (
-//     <div className="fixed inset-0 z-50 overflow-y-auto">
-//       <div className="flex min-h-full items-center justify-center p-4">
-//         <div
-//           className="fixed inset-0 bg-black bg-opacity-25"
-//           onClick={onClose}
-//         />
-//         <div className="relative w-full max-w-2xl transform overflow-hidden rounded-lg bg-card border border-border p-6 text-left align-middle shadow-xl transition-all">
-//           <div className="flex items-center justify-between mb-4">
-//             <h3 className="text-lg font-medium leading-6 text-foreground">
-//               {title}
-//             </h3>
-//             <button
-//               onClick={onClose}
-//               className="text-muted-foreground hover:text-foreground transition-colors p-1">
-//               <svg
-//                 className="h-5 w-5"
-//                 fill="none"
-//                 viewBox="0 0 24 24"
-//                 stroke="currentColor">
-//                 <path
-//                   strokeLinecap="round"
-//                   strokeLinejoin="round"
-//                   strokeWidth={2}
-//                   d="M6 18L18 6M6 6l12 12"
-//                 />
-//               </svg>
-//             </button>
-//           </div>
-//           {children}
-//         </div>
-//       </div>
-//     </div>
-//   )
-// }
-
 export function SettingsManager() {
   const { userDetails, userSettings, pushNotification, theme, setTheme } =
     useGlobalState()
@@ -112,16 +50,16 @@ export function SettingsManager() {
   const [apiKey, setApiKey] = useState("")
 
   useEffect(() => {
-    const storedApiKey = loadFromLocalStorage<string>("ENCRYPTION_KEY")
-    if (storedApiKey) {
-      setApiKey(hiddenKey)
-    }
+    loadFromLocalStorage<string>(ENCRYPTION_KEY_NAME).then((storedApiKey) => {
+      if (storedApiKey) {
+        setApiKey(hiddenKey)
+      }
+    })
   }, [])
 
   return (
     <div>
       <div className="space-y-10">
-        {/* General Settings */}
         <h3 className="text-lg font-semibold text-foreground mb-4">
           General Settings
         </h3>
@@ -178,7 +116,6 @@ export function SettingsManager() {
           </div>
         </div>
 
-        {/* User Details */}
         <h3 className="text-lg font-semibold text-foreground mb-4">
           User Details
         </h3>
@@ -274,7 +211,6 @@ export function SettingsManager() {
           </div>
         </div>
 
-        {/* API Key */}
         <h3 className="text-lg font-semibold text-foreground mb-4">API Key</h3>
         <div className="bg-card rounded-lg border border-border p-6">
           <div>
@@ -318,7 +254,6 @@ export function SettingsManager() {
           </div>
         </div>
 
-        {/* About Placeholders */}
         <h3 className="text-lg font-semibold text-foreground mb-4">
           About Placeholders
         </h3>
