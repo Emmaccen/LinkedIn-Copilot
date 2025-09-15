@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react"
 
+import FeedbackModal from "~components/FeedbackModal"
 import { useGlobalState } from "~store/GlobalContext"
 import type { Theme, UserDetails, UserSettings } from "~types"
 import {
@@ -48,6 +49,7 @@ export function SettingsManager() {
     useState<UserDetails>(userDetails)
 
   const [apiKey, setApiKey] = useState("")
+  const [showFeedback, setShowFeedback] = useState(false)
 
   useEffect(() => {
     loadFromLocalStorage<string>(ENCRYPTION_KEY_NAME).then((storedApiKey) => {
@@ -271,6 +273,49 @@ export function SettingsManager() {
             </p>
           </div>
         </div>
+        <div className="border-t pt-8">
+          <h3 className="text-lg font-semibold text-foreground mb-4">
+            Help & Feedback
+          </h3>
+          <div className="space-y-4">
+            <div className="flex items-center justify-between p-4 border rounded-lg bg-muted/30">
+              <div>
+                <h4 className="font-medium text-foreground">
+                  Share Your Experience
+                </h4>
+                <p className="text-sm text-muted-foreground mt-1">
+                  Help us improve LinkedIn Copilot with your feedback and
+                  suggestions
+                </p>
+              </div>
+              <button
+                onClick={() => setShowFeedback(true)}
+                className="px-4 py-2 text-sm font-medium bg-brand-blue text-white rounded-md hover:bg-brand-blue/90 focus:outline-none focus:ring-2 focus:ring-ring">
+                Send Feedback
+              </button>
+            </div>
+
+            <div className="flex items-center justify-between p-4 border rounded-lg bg-muted/30">
+              <div>
+                <h4 className="font-medium text-foreground">Report Issues</h4>
+                <p className="text-sm text-muted-foreground mt-1">
+                  Found a bug or technical issue? Report it directly on GitHub
+                </p>
+              </div>
+              <a
+                href="https://github.com/emmaccen/linkedin-copilot/issues"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="px-4 py-2 text-sm font-medium border border-input rounded-md hover:bg-accent focus:outline-none focus:ring-2 focus:ring-ring">
+                View Issues
+              </a>
+            </div>
+          </div>
+        </div>
+        <FeedbackModal
+          isOpen={showFeedback}
+          onClose={() => setShowFeedback(false)}
+        />
       </div>
     </div>
   )
