@@ -11,7 +11,7 @@ const UpdateBanner: React.FC<UpdateBannerProps> = ({
 }) => {
   const handleDownload = () => {
     window.open(
-      "https://github.com/emmaccen/linkedin-copilot/releases/latest",
+      `https://github.com/Emmaccen/LinkedIn-Copilot/releases/download/${latestVersion}/linkedin-copilot-latest.zip`,
       "_blank"
     )
   }
@@ -70,7 +70,7 @@ const UpdateBanner: React.FC<UpdateBannerProps> = ({
           Download Update
         </button>
         <a
-          href="https://github.com/emmaccen/linkedin-copilot/releases/latest"
+          href="https://github.com/emmaccen/linkedin-copilot/releases"
           target="_blank"
           rel="noopener noreferrer"
           className="text-xs text-brand-blue hover:underline">
