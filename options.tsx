@@ -6,6 +6,7 @@ import "./styles.css"
 import { Tab, TabGroup, TabList, TabPanel, TabPanels } from "@headlessui/react"
 import { AlertCircle, CheckCircle, InfoIcon } from "lucide-react"
 
+import CheckForUpdates from "~components/CheckForUpdates"
 import { ImportExportTemplate } from "~components/Header"
 import { SettingsManager } from "~components/SettingsManager"
 import { Stats } from "~components/Stats"
@@ -59,7 +60,7 @@ const Options = () => {
       <p className="text-muted-foreground">
         Manage your templates and configure your ai and extension settings.
       </p>
-
+      <CheckForUpdates />
       <TabGroup selectedIndex={selectedIndex} onChange={setSelectedIndex}>
         <TabList className="flex border-b border-border mt-6 space-x-6">
           {["Templates", "Settings"].map((tab) => (

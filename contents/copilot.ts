@@ -1,5 +1,7 @@
 import type { PlasmoCSConfig } from "plasmo"
 
+import { messageExtractor } from "~contents/LinkedInMessageExtractor"
+import { linkedInTyping } from "~contents/TypingSimulator"
 import { createLinkedInPostWithAi, generateReply } from "~lib/ai-copilot"
 import Analytics from "~lib/analytics"
 import {
@@ -21,9 +23,6 @@ import {
   type UserInfo,
   type UserSettings
 } from "~types"
-
-import { messageExtractor } from "./LinkedInMessageExtractor"
-import { linkedInTyping } from "./TypingSimulator"
 
 export const config: PlasmoCSConfig = {
   matches: ["https://*.linkedin.com/*"],
