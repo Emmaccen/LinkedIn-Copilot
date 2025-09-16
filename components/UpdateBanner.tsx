@@ -9,11 +9,34 @@ const UpdateBanner: React.FC<UpdateBannerProps> = ({
   latestVersion,
   onDismiss
 }) => {
-  const handleDownload = () => {
-    window.open(
-      `https://github.com/Emmaccen/LinkedIn-Copilot/releases/download/${latestVersion}/linkedin-copilot-latest.zip`,
-      "_blank"
-    )
+  const openInNewTab = (url: string) => {
+    try {
+      window.open(url, "_blank")
+    } catch {
+      window.location.href = url
+    }
+  }
+
+  const handleDownload = async () => {
+    const tag = latestVersion?.toString().startsWith("v")
+      ? latestVersion.toString()
+      : `v${latestVersion}`
+
+    const assetUrl = `https://github.com/Emmaccen/LinkedIn-Copilot/releases/download/${tag}/linkedin-copilot-latest.zip`
+    const tagPageUrl = `https://github.com/Emmaccen/LinkedIn-Copilot/releases/tag/${tag}`
+
+    try {
+      const res = await fetch(assetUrl, { method: "HEAD" })
+      if (res.ok) {
+        openInNewTab(assetUrl)
+        return
+      }
+    } catch (err) {
+      console.error("Error checking for asset URL", err)
+    }
+
+    // Fallback: open the specific release tag page so user can choose the asset
+    openInNewTab(tagPageUrl)
   }
 
   return (

@@ -1,6 +1,6 @@
 # Changelog
 
-## [v0.0.1-beta.0] - 16-09-2025
+## [v0.0.2] - 16-09-2025
 
 ### Initial Release
 

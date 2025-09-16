@@ -71,7 +71,7 @@ jobs:
           body: |
             Release v${{ steps.get_version.outputs.VERSION }} — auto-built artifact.
           artifacts: "artifacts/linkedin-copilot-v${{ steps.get_version.outputs.VERSION }}.zip,artifacts/linkedin-copilot-latest.zip"
-          draft: false
-          prerelease: true
+          prerelease: false
+          makeLatest: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
