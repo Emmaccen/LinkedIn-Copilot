@@ -1,0 +1,77 @@
+name: Build & Release (tag only)
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-release:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "18"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build extension
+        run: npm run build
+
+      - name: Get version from tag
+        id: get_version
+        run: |
+          TAG_REF="${GITHUB_REF#refs/tags/}"
+          VERSION="${TAG_REF#v}"
+          echo "TAG=${TAG_REF}" >> "$GITHUB_OUTPUT"
+          echo "VERSION=${VERSION}" >> "$GITHUB_OUTPUT"
+
+      - name: Ensure build exists
+        run: |
+          if [ ! -d "build/chrome-mv3-prod" ]; then
+            echo "ERROR: build/chrome-mv3-prod not found. Did npm run build fail?"
+            ls -la build || true
+            exit 1
+          fi
+
+      - name: Create artifacts dir & versioned zip
+        run: |
+          set -e
+          VERSION=${{ steps.get_version.outputs.VERSION }}
+          mkdir -p artifacts
+          rm -f artifacts/linkedin-copilot-v${VERSION}.zip || true
+          cd build/chrome-mv3-prod
+          zip -r ../../artifacts/linkedin-copilot-v${VERSION}.zip .
+
+      - name: Create latest zip
+        run: |
+          set -e
+          mkdir -p artifacts
+          rm -f artifacts/linkedin-copilot-latest.zip || true
+          cd build/chrome-mv3-prod
+          zip -r ../../artifacts/linkedin-copilot-latest.zip .
+
+      - name: Create GitHub Release and upload artifacts
+        uses: ncipollo/release-action@v1
+        with:
+          tag: ${{ steps.get_version.outputs.TAG }}
+          name: "LinkedIn Copilot v${{ steps.get_version.outputs.VERSION }}"
+          body: |
+            Release v${{ steps.get_version.outputs.VERSION }} — auto-built artifact.
+          artifacts: "artifacts/linkedin-copilot-v${{ steps.get_version.outputs.VERSION }}.zip,artifacts/linkedin-copilot-latest.zip"
+          prerelease: false
+          makeLatest: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
