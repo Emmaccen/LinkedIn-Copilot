@@ -89,7 +89,9 @@ export async function getGroqChatStream({
 
     // The maximum number of tokens to generate. Requests can use up to
     // 2048 tokens shared between prompt and completion.
-    max_completion_tokens: 1024,
+    max_completion_tokens: 2000,
+
+    temperature: 0.3,
 
     stop: null,
 
@@ -117,7 +119,9 @@ export async function createLinkedInPostWithAi({
 
     // The maximum number of tokens to generate. Requests can use up to
     // 2048 tokens shared between prompt and completion.
-    max_completion_tokens: 1024,
+    max_completion_tokens: 2000,
+
+    temperature: 0.3,
 
     stop: null,
 
