@@ -33,7 +33,7 @@ Transform your LinkedIn networking with intelligent, personalized responses for 
 
 1. **Download the Latest Release**
 
-   - Go to [Releases](releases)
+   - Go to [Releases](https://github.com/Emmaccen/LinkedIn-Copilot/releases)
    - Download the latest version `linkedin-copilot-[version-number].zip`
 
 2. **Install in Chrome**
