@@ -1,5 +1,35 @@
 # Changelog
 
+## [v0.0.3] — 18-09-2025
+
+### Changed
+
+- Remove HEAD check for GitHub asset availability in the update flow.
+  - The extension now opens the release asset URL directly to avoid CORS failures in the extension environment.
+  - This simplifies update checks and improves reliability for end users.
+
+### Added
+
+- Build status checks in Github actions
+  - This ensures PRs pointed to the `main` branch builds successfully before allowing merge
+  - Keeps workflow clean and free of build errors
+
+### Updated
+
+- Updated system messages for comment creation
+- Increased `max_completion_tokens` for AI generation
+- Reduced `temperature` to `0.2` to increase deterministic tendencies
+
+### Fixed
+
+- Ensure download link normalization: the app now prepends `v` to numeric package.json versions when constructing release URLs (e.g. `0.0.2` -> `v0.0.2`) so direct downloads work consistently.
+- Build/release workflow clarified: releases are produced from tags (`vX.Y.Z`) and uploaded as GitHub Release assets (`linkedin-copilot-vX.Y.Z.zip` + `linkedin-copilot-latest.zip`).
+
+### Notes (v0.0.2)
+
+- Beta / prerelease workflow was removed to keep versioning numeric and Chrome-compatible (manifest version constraints). If you previously had `-beta` tags, those have been cleaned up.
+- To update: the repo uses numeric semantic versions (no `-beta`). Create a numeric tag (e.g. `v0.0.2`) to trigger the release pipeline.
+
 ## [v0.0.2] - 16-09-2025
 
 ### Initial Release
