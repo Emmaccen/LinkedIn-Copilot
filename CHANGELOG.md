@@ -1,6 +1,6 @@
 # Changelog
 
-## [v0.0.4] — 18-09-2025
+## [v0.0.4] — 1-10-2025
 
 - Improved region event analytics gathering
   - Replaced old ipapi with a new and more reliable CORS friendly api
