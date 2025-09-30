@@ -1,4 +1,4 @@
-import type { GAUserInfo, LocationInfo } from "~types"
+import type { GAUserInfo, LocationInfoType } from "~types"
 
 const GA_ENDPOINT = "https://www.google-analytics.com/mp/collect"
 const GA_DEBUG_ENDPOINT = "https://www.google-analytics.com/debug/mp/collect"
@@ -66,7 +66,7 @@ export class Analytics {
   }
 
   // Get location info (cached for performance and rate limiting)
-  async getLocationInfo(): Promise<Partial<LocationInfo>> {
+  async getLocationInfo(): Promise<Record<string, any>> {
     try {
       const cached = await chrome.storage.local.get(["location_cache"])
       if (
@@ -77,15 +77,15 @@ export class Analytics {
         return cached.location_cache.data
       }
 
-      const response = await fetch("https://ipapi.co/json/")
-      const locationData: Record<string, string> = await response.json()
+      const response = await fetch("https://ipwho.is/")
+      const locationData: LocationInfoType = await response.json()
 
       const locationInfo = {
-        country: locationData.country_name,
+        country: locationData.country,
         country_code: locationData.country_code,
         region: locationData.region,
         city: locationData.city,
-        timezone: locationData.timezone,
+        timezone: locationData.timezone.id,
         ...locationData
       }
 
@@ -111,11 +111,11 @@ export class Analytics {
 
   // Get basic user info that Firebase would normally collect
   async getUserInfo(): Promise<GAUserInfo> {
-    const locationInfo: Partial<LocationInfo> = await this.getLocationInfo()
+    const locationInfo: Partial<LocationInfoType> = await this.getLocationInfo()
     return {
       user_agent: navigator.userAgent,
       language: navigator.language,
-      timezone: locationInfo.timezone,
+      timezone: locationInfo.timezone.id,
       country: locationInfo.country,
       country_code: locationInfo.country_code,
       region: locationInfo.region,
