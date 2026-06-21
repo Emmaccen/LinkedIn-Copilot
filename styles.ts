@@ -2,12 +2,19 @@ export const linkedInCopilotStyles = `
       .copilot-capsule-container {
           display: flex;
           align-items: center;
-          gap: 10px;
-          overflow: scroll;
-          padding: 15px 5px;
+          gap: 8px;
+          overflow-x: auto;
+          overflow-y: hidden;
+          padding: 8px 5px;
           font-size: 12px;
+          scrollbar-width: none;
+          -ms-overflow-style: none;
       }
-      
+
+      .copilot-capsule-container::-webkit-scrollbar {
+          display: none;
+      }
+
       .copilot-capsule {
         padding: 12px 16px;
         border-radius: 30px;

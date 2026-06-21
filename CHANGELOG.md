@@ -1,10 +1,35 @@
 # Changelog
 
+## [v0.0.6] — 21-06-2026
+
+This is the first release on `main` after the codebase split. v0.0.5 and everything before it lives on the `deprecated` branch.
+
+### What changed
+
+LinkedIn's feed started rotating their CSS class names on each deployment. The selectors that powered feed commenting since v0.0.2 all broke at once. This release rebuilds the entire feed detection layer around DOM anchors that are tied to accessibility compliance rather than styling.
+
+### Changed
+
+- **Feed comment detection** rebuilt from scratch:
+  - Editor found via `[aria-label="Text editor for creating comment"]` instead of the now-dead `.ql-editor`
+  - Copilot bar inserted relative to `[data-testid="ui-core-tiptap-text-editor-wrapper"]`
+  - Post content read from the first `[data-testid="expandable-text-box"]` inside `[role="listitem"]`
+  - Author name extracted via `a[href*="/in/"] strong` traversal
+- **Input injection** now uses `execCommand` (selectAll, delete, insertText) instead of `innerHTML` assignment, which stopped working when LinkedIn switched their comment editor from Quill to TipTap/ProseMirror
+- **Template capsule bar** now scrolls horizontally with the scrollbar hidden. Padding reduced so it no longer covers the input area
+
+### Notes
+
+- Feed commenting (top-level) is working. DMs are unaffected throughout.
+- Post creation and thread replies rely on selectors that are still being updated. Marked as in-progress.
+
+---
+
 ## [v0.0.5] — 21-06-2026
 
 ### Added
 
-- **Comment thread replies** — AI can now reply to comments on comments (sub-threads)
+- **Comment thread replies** — AI can reply to comments on comments (sub-threads)
   - Detects when the reply input targets a specific commenter
   - Extracts the full comment thread for rich AI context
   - Uses a dedicated `AiThreadReplySystemMessage` prompt tuned for thread conversations
@@ -16,15 +41,8 @@
 ### Changed
 
 - `ReplyPostCommentWithAI()` now accepts an optional `threadCommentData` argument to switch between standard comment and thread-reply prompts
-- User name extraction now captures the **full name** instead of just the first name
-- Notification toast: increased display duration to 4 s and added `max-width: 300px` to prevent overflow
-- Notification slide-in offset increased to `translateX(130%)` so long messages don't clip the edge
-
-### Notes
-
-- **LinkedIn class-name hashing** — LinkedIn's feed has rotated its CSS class names, breaking the selectors used by feed-based features (comment box detection, comment entity extraction, etc.). DMs and other pages are **not affected**.
-- All feed logic is preserved as-is; the thread-reply infrastructure is ready to be re-wired once stable selectors are identified.
-- `DOM-sample.html` was captured from a live LinkedIn feed post and is kept locally as a reference for selector analysis. It is **not** tracked in the repository.
+- User name extraction now captures the full name instead of just the first name
+- Notification toast: 4s display duration, `max-width: 300px`, slide-in offset increased to prevent clipping
 
 ---
 

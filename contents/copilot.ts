@@ -266,37 +266,17 @@ class LinkedinCopilot {
   }
 
   private scanForInputs(container: Element = document as any as Element): void {
-    const placeholders = [
-      "comment",
-      "loved",
-      "support",
-      "insightful",
-      "funny",
-      "wishes"
-    ]
+    // LinkedIn's feed class names are hashed and rotate on each deploy, so
+    // we rely on aria-label instead. LinkedIn has to keep that stable for
+    // accessibility. If this breaks, check whether the aria-label changed.
+    const COMMENT_EDITOR_SELECTOR =
+      '[contenteditable="true"][aria-label="Text editor for creating comment"]'
+
     const commentBoxes = Array.from(
-      container.querySelectorAll(".ql-editor[role='textbox']")
-    ).filter((el) =>
-      placeholders.some((text) =>
-        el.getAttribute("data-placeholder")?.toLowerCase().includes(text)
-      )
+      container.querySelectorAll(COMMENT_EDITOR_SELECTOR)
     )
 
-    const subCommentBoxes = Array.from(
-      container.querySelectorAll(".ql-editor[role='textbox']")
-    )
-      .filter((el) =>
-        el
-          .getAttribute("data-placeholder")
-          // ?.toLowerCase()
-          .includes("Add a reply…")
-      )
-      .map((commentBox) => {
-        commentBox.setAttribute("is-sub-reply", "true")
-        commentBox.setAttribute("replying-to", commentBox.textContent)
-        return commentBox
-      })
-
+    // DM pages still use stable class names, so no changes needed there.
     const dmBoxes = container.querySelectorAll(
       ".msg-form__contenteditable[contenteditable='true']"
     )
@@ -305,9 +285,6 @@ class LinkedinCopilot {
     }
 
     commentBoxes.forEach((box) =>
-      this.attachDropdown(box as HTMLElement, "feed")
-    )
-    subCommentBoxes.forEach((box) =>
       this.attachDropdown(box as HTMLElement, "feed")
     )
   }
@@ -338,34 +315,34 @@ class LinkedinCopilot {
     inputElement.setAttribute("data-copilot-attached", "true")
 
     const dropdown = this.createDropdown(context, inputElement)
+    dropdown.style.display = "none"
 
-    const inputContainer = inputElement.closest(
-      ".comments-comment-box__form"
-    ) as HTMLElement
+    // The form wrapper and the comments section are siblings inside the post card.
+    // Inserting our bar before the comments section puts it cleanly below the
+    // entire form without touching any of LinkedIn's internal input structure.
+    const postCard = inputElement.closest('[role="listitem"]')
+    const commentsSection = postCard?.querySelector(
+      '[componentkey^="commentsSectionContainer"]'
+    )
 
-    if (inputContainer.parentElement) {
-      inputContainer.parentElement.insertAdjacentElement("afterend", dropdown)
+    if (commentsSection) {
+      commentsSection.insertAdjacentElement("beforebegin", dropdown)
+    } else if (postCard) {
+      // Comments not loaded yet — append to the post card as a fallback.
+      // Not pixel-perfect, but it won't break the input.
+      postCard.appendChild(dropdown)
     }
 
-    // Show dropdown on focus
     inputElement.addEventListener("focus", () => {
       this.showDropdown(dropdown)
     })
 
-    // Input might already be focused before we attached the "focus" event
+    // Show immediately if the element is already focused when we attach
     if (document.activeElement === inputElement) {
       this.showDropdown(dropdown)
     }
-
-    // Hide dropdown on blur (with delay for click handling)
-    // inputElement.addEventListener("blur", () => {
-    //   setTimeout(() => {
-    //     if (!dropdown.matches(":hover")) {
-    //       this.hideDropdown(dropdown)
-    //     }
-    //   }, 150)
-    // })
   }
+
 
   private attachPilotToDmBoxes = (
     inputElement: HTMLElement,
@@ -390,7 +367,6 @@ class LinkedinCopilot {
   ): HTMLElement {
     const dropdown = document.createElement("div")
     dropdown.className = "copilot-dropdown"
-    // dropdown.style.display = "none"
 
     const actions = this.getActionsForContext(context)
 
@@ -547,18 +523,16 @@ class LinkedinCopilot {
   }
 
   private extractPostContent(inputElement: HTMLElement): string {
-    // Find the post content relative to the comment box
-    const postContainer =
-      inputElement.closest(".feed-shared-update-v2") ||
-      inputElement.closest(
-        ".feed-shared-update-detail-viewer__overflow-content"
-      )
-    if (!postContainer) return ""
+    // role="listitem" is a semantic HTML attribute on each feed post card —
+    // safe to use as a stable ancestor anchor.
+    const postCard = inputElement.closest('[role="listitem"]')
+    if (!postCard) return ""
 
-    const contentElement = postContainer.querySelector(
-      ".update-components-text"
+    // First [data-testid="expandable-text-box"] inside the card is the post body.
+    const postTextEl = postCard.querySelector(
+      '[data-testid="expandable-text-box"]'
     )
-    return contentElement?.textContent?.trim() || ""
+    return postTextEl?.textContent?.trim() || ""
   }
 
   private async handleSingleDmMessageAIReply(
@@ -654,15 +628,16 @@ class LinkedinCopilot {
     const userInfo = this.extractUserInfo(inputElement)
 
     try {
-      // only clear input when we're re-trying not when we've only just mentioned @handle/tag
+      // Don't nuke the @mention tag if the user just clicked Reply and the
+      // box only has a name in it — only clear if there's actual previous content.
       const possibleReplyToNameInInput =
         inputElement.textContent.trim().length <= 30
       if (!possibleReplyToNameInInput) {
         this.setInputValue("", inputElement)
       }
-      const loaderContainer = inputElement.closest(
-        ".comments-comment-texteditor"
-      ) as HTMLElement
+      const loaderContainer = (inputElement.closest(
+        '[data-testid="ui-core-tiptap-text-editor-wrapper"]'
+      ) ?? inputElement) as HTMLElement
       this.startAiProcessing(loaderContainer)
       const stream = await generateReply({
         message: postContent,
@@ -712,24 +687,27 @@ class LinkedinCopilot {
   private extractUserInfo(inputElement: HTMLElement): UserInfo {
     const info: UserInfo = {}
 
-    const postContainer =
-      inputElement.closest(".feed-shared-update-v2") ||
-      inputElement.closest(".feed-shared-update-detail-viewer__right-panel")
-    if (!postContainer) return {}
+    const postCard = inputElement.closest('[role="listitem"]')
+    if (!postCard) return {}
 
-    // Try to extract name
-    const nameElement = postContainer.querySelector(
-      ".update-components-actor__title"
-    )
-    if (nameElement?.textContent) {
-      info.name = nameElement.textContent.trim().split(" ").join(" ")
+    // Profile links always point to /in/ — first one with a name inside
+    // is the post author. <strong> is preferred; span is the fallback.
+    const actorNameEl =
+      postCard.querySelector('a[href*="/in/"] strong') ??
+      postCard.querySelector('a[href*="/in/"] span:not([aria-hidden])')
+    if (actorNameEl?.textContent) {
+      info.name = actorNameEl.textContent.trim()
     }
 
-    const userDesc = postContainer.querySelector(
-      ".update-components-actor__description"
-    )
-    if (userDesc?.textContent) {
-      info.desc = userDesc.textContent.trim()
+    // Headline lives a couple of levels above the name element.
+    // Second <p> in that block is usually the job title.
+    const actorLink = actorNameEl?.closest('a[href*="/in/"]')
+    const actorBlock = actorLink?.parentElement?.parentElement
+    if (actorBlock) {
+      const descParagraphs = actorBlock.querySelectorAll("p")
+      if (descParagraphs.length > 1) {
+        info.desc = descParagraphs[1].textContent?.trim() || ""
+      }
     }
 
     return info
@@ -875,12 +853,26 @@ class LinkedinCopilot {
       const textarea = inputElement as HTMLTextAreaElement
       if (append) textarea.value += message
       else textarea.value = message
-    } else {
-      if (append) inputElement.textContent += message
-      else inputElement.innerHTML = message
+      inputElement.dispatchEvent(new Event("input", { bubbles: true }))
+      inputElement.dispatchEvent(new Event("change", { bubbles: true }))
+      return
     }
 
-    inputElement.dispatchEvent(new Event("input", { bubbles: true }))
+    // LinkedIn switched to TipTap/ProseMirror, so the old innerHTML trick
+    // stopped working. execCommand is technically deprecated but still the
+    // only cross-browser way to push text into a ProseMirror editor without
+    // reaching into its internals. Works until it doesn't, fingers crossed.
+    if (!append) {
+      document.execCommand("selectAll", false, null)
+      document.execCommand("delete", false, null)
+    }
+    if (message) {
+      document.execCommand("insertText", false, message)
+    }
+
+    inputElement.dispatchEvent(
+      new InputEvent("input", { bubbles: true, cancelable: true })
+    )
     inputElement.dispatchEvent(new Event("change", { bubbles: true }))
   }
 
