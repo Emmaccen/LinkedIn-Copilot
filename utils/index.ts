@@ -1,3 +1,5 @@
+import type { PostCommentThreadItem } from "~types"
+
 export const STORAGE_CHANGE_EVENT = "customStorageChange"
 export const ENCRYPTION_KEY_NAME = "linkedin-copilot-key" // For storing the encryption key
 export const ENCRYPTED_API_KEY_NAME = "encrypted-groq-api-key" // For storing the encrypted API key
@@ -213,4 +215,66 @@ export async function debugStorage(): Promise<void> {
   console.log("All storage contents:", allStorage)
   console.log("Encryption key exists:", !!allStorage[ENCRYPTION_KEY_NAME])
   console.log("Encrypted API key exists:", !!allStorage[ENCRYPTED_API_KEY_NAME])
+}
+
+export function extractLinkedInComments(element = document.body) {
+  const comments: PostCommentThreadItem[] = []
+
+  const commentElements = element.querySelectorAll(".comments-comment-entity")
+
+  commentElements.forEach((commentElement) => {
+    try {
+      // Extract commenter name
+      const nameElement = commentElement.querySelector(
+        ".comments-comment-meta__description-title"
+      )
+      const name = nameElement ? nameElement.textContent.trim() : "Unknown"
+
+      // Extract comment text
+      const commentTextElement = commentElement.querySelector(
+        ".update-components-text"
+      )
+      let commentText = ""
+
+      if (commentTextElement) {
+        // Clone the element to manipulate it
+        const clone = commentTextElement.cloneNode(true) as HTMLElement
+
+        // Remove any "...more" buttons or extra UI elements
+        const moreButtons = clone.querySelectorAll(
+          ".feed-shared-inline-show-more-text__see-more-less-toggle"
+        )
+        moreButtons.forEach((btn) => btn.remove())
+
+        commentText = clone.textContent.trim()
+
+        commentText = commentText.replace(/\s+/g, " ").trim()
+      }
+
+      if (name !== "Unknown" && commentText) {
+        comments.push({
+          name,
+          comment: commentText
+        })
+      }
+    } catch (error) {
+      console.error("Error extracting comment:", error)
+    }
+  })
+
+  return comments
+}
+
+export function formatPostCommentThreadItems(
+  comments: PostCommentThreadItem[]
+) {
+  let output = "\n"
+
+  comments.forEach((item, index) => {
+    output += `${index + 1}. Name: ${item.name}\n  Comment: ${item.comment}\n\n`
+    // output += `Name: ${item.name}\n`
+    // output += `Comment: ${item.comment}\n\n`
+  })
+
+  return output
 }

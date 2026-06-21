@@ -1,5 +1,33 @@
 # Changelog
 
+## [v0.0.5] — 21-06-2026
+
+### Added
+
+- **Comment thread replies** — AI can now reply to comments on comments (sub-threads)
+  - Detects when the reply input targets a specific commenter
+  - Extracts the full comment thread for rich AI context
+  - Uses a dedicated `AiThreadReplySystemMessage` prompt tuned for thread conversations
+  - Smart input handling: preserves the LinkedIn `@mention` tag on first reply attempt
+- `PostCommentThreadItem` type for structured comment thread data
+- `extractLinkedInComments()` utility to scrape comment thread items from the DOM
+- `formatPostCommentThreadItems()` utility to serialize threads for the AI prompt
+
+### Changed
+
+- `ReplyPostCommentWithAI()` now accepts an optional `threadCommentData` argument to switch between standard comment and thread-reply prompts
+- User name extraction now captures the **full name** instead of just the first name
+- Notification toast: increased display duration to 4 s and added `max-width: 300px` to prevent overflow
+- Notification slide-in offset increased to `translateX(130%)` so long messages don't clip the edge
+
+### Notes
+
+- **LinkedIn class-name hashing** — LinkedIn's feed has rotated its CSS class names, breaking the selectors used by feed-based features (comment box detection, comment entity extraction, etc.). DMs and other pages are **not affected**.
+- All feed logic is preserved as-is; the thread-reply infrastructure is ready to be re-wired once stable selectors are identified.
+- `DOM-sample.html` was captured from a live LinkedIn feed post and is kept locally as a reference for selector analysis. It is **not** tracked in the repository.
+
+---
+
 ## [v0.0.4] — 1-10-2025
 
 - Improved region event analytics gathering

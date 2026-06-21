@@ -8,6 +8,7 @@ import {
   AiCommentSystemMessage,
   AiDmChatSystemMessage,
   AiSingleDmSystemMessage,
+  AiThreadReplySystemMessage,
   aiWritingStyleSystemMessage
 } from "~static-data"
 import { linkedInCopilotStyles } from "~styles"
@@ -23,6 +24,7 @@ import {
   type UserInfo,
   type UserSettings
 } from "~types"
+import { extractLinkedInComments, formatPostCommentThreadItems } from "~utils"
 
 export const config: PlasmoCSConfig = {
   matches: ["https://*.linkedin.com/*"],
@@ -280,6 +282,21 @@ class LinkedinCopilot {
       )
     )
 
+    const subCommentBoxes = Array.from(
+      container.querySelectorAll(".ql-editor[role='textbox']")
+    )
+      .filter((el) =>
+        el
+          .getAttribute("data-placeholder")
+          // ?.toLowerCase()
+          .includes("Add a reply…")
+      )
+      .map((commentBox) => {
+        commentBox.setAttribute("is-sub-reply", "true")
+        commentBox.setAttribute("replying-to", commentBox.textContent)
+        return commentBox
+      })
+
     const dmBoxes = container.querySelectorAll(
       ".msg-form__contenteditable[contenteditable='true']"
     )
@@ -288,6 +305,9 @@ class LinkedinCopilot {
     }
 
     commentBoxes.forEach((box) =>
+      this.attachDropdown(box as HTMLElement, "feed")
+    )
+    subCommentBoxes.forEach((box) =>
       this.attachDropdown(box as HTMLElement, "feed")
     )
   }
@@ -481,7 +501,44 @@ class LinkedinCopilot {
         if (context === "dm") {
           await this.handleAIChatHistoryReply(inputElement)
         } else {
-          await this.ReplyPostCommentWithAI(inputElement, context)
+          if (inputElement.getAttribute("is-sub-reply") === "true") {
+            const topLevelCommentContainer = this.findTopLevelContainer(
+              inputElement,
+              (searchElement) =>
+                searchElement.tagName === "ARTICLE" &&
+                searchElement.getAttribute("tabindex") === "-1" &&
+                searchElement.parentElement.tagName === "DIV"
+            )
+            if (topLevelCommentContainer) {
+              const comments = extractLinkedInComments(
+                topLevelCommentContainer.parentElement
+              )
+              if (!!comments.length) {
+                let formattedCommentForAi =
+                  formatPostCommentThreadItems(comments)
+                const replyingTo = inputElement.getAttribute("replying-to")
+                formattedCommentForAi += `\n You're replying To: ${replyingTo}`
+
+                if (!replyingTo) {
+                  this.showNotification(
+                    "Unable to process who you're replying to. Please click the reply button and focus input",
+                    "error"
+                  )
+                  return
+                }
+                this.showNotification(
+                  `Replying to ${replyingTo ?? "Comment"}`,
+                  "info"
+                )
+
+                await this.ReplyPostCommentWithAI(
+                  inputElement,
+                  context,
+                  formattedCommentForAi
+                )
+              }
+            }
+          } else await this.ReplyPostCommentWithAI(inputElement, context)
         }
       }
     } else {
@@ -589,25 +646,38 @@ class LinkedinCopilot {
   }
   private async ReplyPostCommentWithAI(
     inputElement: HTMLElement,
-    context: ContextType
+    context: ContextType,
+    threadCommentData?: string
   ): Promise<void> {
     // Extract post content for context
     const postContent = this.extractPostContent(inputElement)
     const userInfo = this.extractUserInfo(inputElement)
 
     try {
-      this.setInputValue("", inputElement)
+      // only clear input when we're re-trying not when we've only just mentioned @handle/tag
+      const possibleReplyToNameInInput =
+        inputElement.textContent.trim().length <= 30
+      if (!possibleReplyToNameInInput) {
+        this.setInputValue("", inputElement)
+      }
       const loaderContainer = inputElement.closest(
         ".comments-comment-texteditor"
       ) as HTMLElement
       this.startAiProcessing(loaderContainer)
       const stream = await generateReply({
         message: postContent,
-        systemMessage: AiCommentSystemMessage({
-          linkedInPostUserInfo: userInfo,
-          personalInfo: this.userDetails,
-          context
-        })
+        systemMessage: threadCommentData
+          ? AiThreadReplySystemMessage({
+              linkedInPostUserInfo: userInfo,
+              personalInfo: this.userDetails,
+              context,
+              threadComment: threadCommentData
+            })
+          : AiCommentSystemMessage({
+              linkedInPostUserInfo: userInfo,
+              personalInfo: this.userDetails,
+              context
+            })
       })
       for await (const chunk of stream) {
         this.setInputValue(
@@ -652,7 +722,7 @@ class LinkedinCopilot {
       ".update-components-actor__title"
     )
     if (nameElement?.textContent) {
-      info.name = nameElement.textContent.trim().split(" ")[0]
+      info.name = nameElement.textContent.trim().split(" ").join(" ")
     }
 
     const userDesc = postContainer.querySelector(
@@ -834,8 +904,8 @@ class LinkedinCopilot {
         if (document.body.contains(notification)) {
           document.body.removeChild(notification)
         }
-      }, 300)
-    }, 3000)
+      }, 2000)
+    }, 4000)
   }
 
   private async updateUsageStats(category: string): Promise<void> {

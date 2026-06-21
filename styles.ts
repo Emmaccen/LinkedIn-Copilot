@@ -29,6 +29,7 @@ export const linkedInCopilotStyles = `
       
       .linkedin-auto-reply-notification {
         position: fixed;
+        max-width: 300px;
         top: 20px;
         right: 20px;
         padding: 12px 20px;
@@ -38,7 +39,7 @@ export const linkedInCopilotStyles = `
         font-size: 14px;
         font-weight: 500;
         z-index: 10000;
-        transform: translateX(100%);
+        transform: translateX(130%);
         transition: transform 0.3s ease;
         box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
       }

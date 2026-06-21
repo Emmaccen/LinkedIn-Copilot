@@ -123,8 +123,8 @@ export function SettingsManager() {
         </h3>
         <div className="bg-card rounded-lg border border-border p-6">
           <p className="text-muted-foreground mb-4">
-            This will be used to personalize your replies to posts. Make it
-            detailed and include only important points
+            This personalizes all AI actions. Make it detailed and include only
+            important points
           </p>
           <div className="space-y-4">
             <div>
@@ -134,6 +134,7 @@ export function SettingsManager() {
               <input
                 type="text"
                 value={userDetailsLocal.fullName}
+                placeholder="It is important that this matches what you have on your LinkedIn profile"
                 onChange={(e) => {
                   const updatedData = {
                     ...userDetailsLocal,
@@ -151,6 +152,7 @@ export function SettingsManager() {
               <input
                 type="text"
                 value={userDetailsLocal.professionalTitle}
+                placeholder="e.g Senior Director of sales | Google"
                 onChange={(e) => {
                   const updatedData = {
                     ...userDetailsLocal,
