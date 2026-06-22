@@ -171,3 +171,5 @@ export interface Timezone {
   utc: string
   current_time: Date
 }
+
+export type PostCommentThreadItem = { name: string; comment: string }

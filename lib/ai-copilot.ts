@@ -85,11 +85,11 @@ export async function getGroqChatStream({
         content: message
       }
     ],
-    model: "llama-3.3-70b-versatile",
+    model: "openai/gpt-oss-120b",
 
     // The maximum number of tokens to generate. Requests can use up to
     // 2048 tokens shared between prompt and completion.
-    max_completion_tokens: 2000,
+    // max_completion_tokens: 2000,
 
     temperature: 0.3,
 
@@ -115,11 +115,11 @@ export async function createLinkedInPostWithAi({
         content: message
       }
     ],
-    model: "llama-3.3-70b-versatile",
+    model: "openai/gpt-oss-120b",
 
     // The maximum number of tokens to generate. Requests can use up to
     // 2048 tokens shared between prompt and completion.
-    max_completion_tokens: 2000,
+    // max_completion_tokens: 2000,
 
     temperature: 0.3,
 
