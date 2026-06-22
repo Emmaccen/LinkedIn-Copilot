@@ -177,7 +177,7 @@ export function SettingsManager() {
                   setUserDetailsLocal(updatedData)
                 }}
                 rows={4}
-                maxLength={500}
+                maxLength={2000}
                 className="w-full px-3 py-2 border border-border bg-background rounded-lg text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-brand-blue focus:border-transparent font-mono"
                 placeholder="A brief summary about you..."
               />

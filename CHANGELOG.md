@@ -1,5 +1,16 @@
 # Changelog
 
+## [v0.0.8] — 22-06-2026
+
+### Added
+
+- **Anti-Slop Style Guide**: Integrated a strict writing guidelines block (`ANTI_SLOP_GUIDE`) to eliminate generic AI writing patterns and slop in comment/post generation.
+
+### Changed
+
+- **Professional Summary Limit**: Increased the maximum character length for professional summary fields from 500 to 2000 characters in `SettingsManager`.
+- **Release Workflow Link**: Appended a direct URL reference to the latest release tags `CHANGELOG.md` file within `.github/workflows/release.yml`.
+
 ## [v0.0.7] — 22-06-2026
 
 ### Added

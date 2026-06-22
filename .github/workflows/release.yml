@@ -70,6 +70,7 @@ jobs:
           name: "LinkedIn Copilot v${{ steps.get_version.outputs.VERSION }}"
           body: |
             Release v${{ steps.get_version.outputs.VERSION }} — auto-built artifact.
+            See [Changelog](https://github.com/Emmaccen/LinkedIn-Copilot/blob/v${{ steps.get_version.outputs.VERSION }}/CHANGELOG.md) for notes
           artifacts: "artifacts/linkedin-copilot-v${{ steps.get_version.outputs.VERSION }}.zip,artifacts/linkedin-copilot-latest.zip"
           prerelease: false
           makeLatest: true
