@@ -1,5 +1,28 @@
 # Changelog
 
+## [v0.0.7] — 22-06-2026
+
+### Added
+
+- **Intelligent DOM-Positional Comment Thread Scraper**: Introduced a chronological thread scraper that walks backwards from a reply target and extracts only the unique parent comment history (A -> B -> C), avoiding unrelated threads in flat comment columns.
+- **Shadow DOM Traversal Helpers**: Introduced `findInShadows`, `findAllInShadows`, and `findClosestIncludingShadows` functions to cross open shadow boundaries recursively.
+- **Dynamic Shadow Root Mutation Observers**: Dynamically registers MutationObservers on discovered shadow hosts' roots, capturing inputs with loading delays (e.g. the post creation modal inside `#interop-outlet`).
+- **Social Action Filtering**: Introduced ancestor checks to ignore profile links within social headers (e.g., "likes this", "commented on", "reposted") when resolving the post author.
+- **Robust Comment Replies**: Thread replies now work consistently by searching for valid name links, extracting preceding thread history chronologically, and verifying sub-replies via placeholder text checks (matching `/reply/i`).
+- **Modal Overlay Support**: Enabled full commenting support when viewing posts in modal overlays (theater/details view) by querying across panes for post content and placing the Copilot dropdown correctly under the input.
+
+### Changed
+
+- **AI Post Creation Modal Detour Integration**:
+  - Replaced the intrusive top banner and text tip with a clean **"Write with AI"** action button integrated directly into the footer's detour buttons list (`ul.artdeco-carousel__slider`).
+  - Added dashed highlight border and blue background styling matching native LinkedIn aesthetics.
+  - Implemented multi-stage fallbacks to action bar containers or the top-of-editor pane to handle layout variations.
+- **Profile Name Resolution**: Strip connection states (e.g. `• 2nd`, `1st`) and extra whitespace in `extractNameFromLink`.
+- **Selector Refactoring**: Swapped standard querySelector and `.closest` lookups in all key layers (including appending `[aria-label="Primary content"]` for detail views) with shadow-aware query functions.
+- **Dropdown Layout Styling**: Bounded the capsule dropdown and adjusted spacing margins to align correctly under the input editor.
+
+---
+
 ## [v0.0.6] — 21-06-2026
 
 This is the first release on `main` after the codebase split. v0.0.5 and everything before it lives on the `deprecated` branch.

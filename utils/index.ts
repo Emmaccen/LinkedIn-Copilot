@@ -217,52 +217,189 @@ export async function debugStorage(): Promise<void> {
   console.log("Encrypted API key exists:", !!allStorage[ENCRYPTED_API_KEY_NAME])
 }
 
+export function cleanName(name: string): string {
+  return name
+    .replace(/\s*•\s*\d+(?:st|nd|rd|th)\b/i, "") // remove connection state like " • 2nd"
+    .replace(/\s+\d+(?:st|nd|rd|th)\b/i, "") // remove connection state like " 2nd"
+    .trim()
+}
+
+export function extractNameFromLink(linkElement: Element): string {
+  const hiddenSpan = linkElement.querySelector('span[aria-hidden="true"]')
+  if (hiddenSpan) {
+    const text = Array.from(hiddenSpan.childNodes)
+      .find((node) => node.nodeType === 3) // TEXT_NODE
+      ?.textContent?.trim()
+    if (text) return cleanName(text)
+  }
+  const strong = linkElement.querySelector("strong")
+  if (strong) {
+    const text = Array.from(strong.childNodes)
+      .find((node) => node.nodeType === 3)
+      ?.textContent?.trim()
+    if (text) return cleanName(text)
+  }
+  const span = linkElement.querySelector("span")
+  if (span) {
+    const text = Array.from(span.childNodes)
+      .find((node) => node.nodeType === 3)
+      ?.textContent?.trim()
+    if (text) return cleanName(text)
+  }
+  return cleanName(linkElement.textContent?.trim() || "")
+}
+
+export function extractAuthorName(container: Element): {
+  name: string
+  link: Element | null
+} {
+  const links = findAllInShadows('a[href*="/in/"]', container)
+  for (const link of links) {
+    // Check if the link is within a social header action (e.g. "likes this")
+    let parent: Node | null = link.parentNode
+    let isSocial = false
+    while (parent && parent !== container) {
+      if (parent instanceof ShadowRoot) {
+        parent = parent.host
+        continue
+      }
+      const text = parent.textContent || ""
+      if (
+        /\b(likes this|commented on|reposted|suggested|promoted|sponsored)\b/i.test(
+          text
+        )
+      ) {
+        isSocial = true
+        break
+      }
+      parent = parent.parentNode
+    }
+    if (isSocial) continue
+
+    const name = extractNameFromLink(link)
+    // Check if it's a real name (not empty, not just a help string, etc.)
+    if (name && name.length > 1 && !/view\s+.*profile/i.test(name)) {
+      return { name, link }
+    }
+  }
+  return { name: "", link: null }
+}
+
+export function extractSingleComment(
+  commentElement: Element
+): PostCommentThreadItem | null {
+  try {
+    const { name } = extractAuthorName(commentElement)
+    const finalName = name || "Unknown"
+
+    const commentTextElement = findInShadows(
+      '[data-testid="expandable-text-box"]',
+      commentElement
+    )
+    let commentText = ""
+
+    if (commentTextElement) {
+      const clone = commentTextElement.cloneNode(true) as HTMLElement
+      const moreButtons = clone.querySelectorAll(
+        '[data-testid="expandable-text-button"]'
+      )
+      moreButtons.forEach((btn) => btn.remove())
+      commentText = clone.textContent?.trim() || ""
+      commentText = commentText.replace(/\s+/g, " ").trim()
+    }
+
+    if (finalName !== "Unknown" && commentText) {
+      return {
+        name: finalName,
+        comment: commentText
+      }
+    }
+  } catch (error) {
+    console.error("Error extracting single comment:", error)
+  }
+  return null
+}
+
 export function extractLinkedInComments(element = document.body) {
   const comments: PostCommentThreadItem[] = []
 
-  const commentElements = element.querySelectorAll(".comments-comment-entity")
+  const commentElements = findAllInShadows(
+    'div[componentkey^="replaceableComment_"]',
+    element
+  )
 
   commentElements.forEach((commentElement) => {
-    try {
-      // Extract commenter name
-      const nameElement = commentElement.querySelector(
-        ".comments-comment-meta__description-title"
-      )
-      const name = nameElement ? nameElement.textContent.trim() : "Unknown"
+    const componentKey = commentElement.getAttribute("componentkey")
+    const parent = commentElement.parentElement
+    if (
+      parent &&
+      findClosestIncludingShadows(parent, `div[componentkey="${componentKey}"]`)
+    ) {
+      return
+    }
 
-      // Extract comment text
-      const commentTextElement = commentElement.querySelector(
-        ".update-components-text"
-      )
-      let commentText = ""
-
-      if (commentTextElement) {
-        // Clone the element to manipulate it
-        const clone = commentTextElement.cloneNode(true) as HTMLElement
-
-        // Remove any "...more" buttons or extra UI elements
-        const moreButtons = clone.querySelectorAll(
-          ".feed-shared-inline-show-more-text__see-more-less-toggle"
-        )
-        moreButtons.forEach((btn) => btn.remove())
-
-        commentText = clone.textContent.trim()
-
-        commentText = commentText.replace(/\s+/g, " ").trim()
-      }
-
-      if (name !== "Unknown" && commentText) {
-        comments.push({
-          name,
-          comment: commentText
-        })
-      }
-    } catch (error) {
-      console.error("Error extracting comment:", error)
+    const single = extractSingleComment(commentElement)
+    if (single) {
+      comments.push(single)
     }
   })
 
   return comments
+}
+
+export function findCommentByUrn(
+  urn: string,
+  startNode: Node = document
+): HTMLElement | null {
+  const elements = findAllInShadows(
+    `div[componentkey="${urn}"]`,
+    startNode
+  ) as HTMLElement[]
+  return (
+    elements.find((el) => {
+      const parent = el.parentElement
+      return (
+        !parent ||
+        !findClosestIncludingShadows(parent, `div[componentkey="${urn}"]`)
+      )
+    }) ?? null
+  )
+}
+
+export function findClosestPrecedingComment(
+  inputEl: HTMLElement,
+  startNode: Node = document
+): HTMLElement | null {
+  const allComments = findAllInShadows(
+    'div[componentkey^="replaceableComment_"]',
+    startNode
+  ) as HTMLElement[]
+
+  const uniqueOutermostComments: HTMLElement[] = []
+  const seenKeys = new Set<string>()
+
+  allComments.forEach((el) => {
+    const key = el.getAttribute("componentkey")
+    if (key && !seenKeys.has(key)) {
+      const parent = el.parentElement
+      const isOutermost =
+        !parent ||
+        !findClosestIncludingShadows(parent, `div[componentkey="${key}"]`)
+      if (isOutermost) {
+        uniqueOutermostComments.push(el)
+        seenKeys.add(key)
+      }
+    }
+  })
+
+  let closest: HTMLElement | null = null
+  for (const commentEl of uniqueOutermostComments) {
+    const pos = commentEl.compareDocumentPosition(inputEl)
+    if (pos & Node.DOCUMENT_POSITION_FOLLOWING) {
+      closest = commentEl
+    }
+  }
+  return closest
 }
 
 export function formatPostCommentThreadItems(
@@ -272,9 +409,168 @@ export function formatPostCommentThreadItems(
 
   comments.forEach((item, index) => {
     output += `${index + 1}. Name: ${item.name}\n  Comment: ${item.comment}\n\n`
-    // output += `Name: ${item.name}\n`
-    // output += `Comment: ${item.comment}\n\n`
   })
 
   return output
+}
+
+export function findInShadows(
+  selector: string,
+  startNode: Node = document
+): Element | null {
+  if (startNode instanceof Document || startNode instanceof Element) {
+    try {
+      const quick = (startNode as any).querySelector(selector)
+      if (quick) return quick
+    } catch (e) {}
+  }
+
+  let found: Element | null = null
+
+  function walk(node: Node): boolean {
+    if (node instanceof Element) {
+      if (node.matches(selector)) {
+        found = node
+        return true
+      }
+      if (node.shadowRoot) {
+        try {
+          const quick = node.shadowRoot.querySelector(selector)
+          if (quick) {
+            found = quick
+            return true
+          }
+        } catch (e) {}
+        if (walk(node.shadowRoot)) return true
+      }
+    }
+
+    let child = node.firstChild
+    while (child) {
+      if (walk(child)) return true
+      child = child.nextSibling
+    }
+    return false
+  }
+
+  walk(startNode)
+  return found
+}
+
+export function findAllInShadows(
+  selector: string,
+  startNode: Node = document
+): Element[] {
+  let results: Element[] = []
+  if (startNode instanceof Document || startNode instanceof Element) {
+    try {
+      const quick = Array.from(
+        (startNode as any).querySelectorAll(selector)
+      ) as Element[]
+      if (quick.length > 0) {
+        results = quick
+      }
+    } catch (e) {}
+  }
+
+  const seen = new Set<Element>(results)
+
+  function walk(node: Node) {
+    if (node instanceof Element) {
+      if (node.matches(selector)) {
+        if (!seen.has(node)) {
+          results.push(node)
+          seen.add(node)
+        }
+      }
+      if (node.shadowRoot) {
+        try {
+          const quick = Array.from(
+            node.shadowRoot.querySelectorAll(selector)
+          ) as Element[]
+          quick.forEach((el) => {
+            if (!seen.has(el)) {
+              results.push(el)
+              seen.add(el)
+            }
+          })
+        } catch (e) {}
+        walk(node.shadowRoot)
+      }
+    }
+
+    let child = node.firstChild
+    while (child) {
+      walk(child)
+      child = child.nextSibling
+    }
+  }
+
+  walk(startNode)
+  return results
+}
+
+export function findClosestIncludingShadows(
+  node: Node | null,
+  selector: string
+): Element | null {
+  let current: Node | null = node
+  while (current) {
+    if (current instanceof Element) {
+      if (current.matches(selector)) {
+        return current
+      }
+    }
+    if (current instanceof ShadowRoot) {
+      current = current.host
+    } else {
+      current = current.parentNode
+    }
+  }
+  return null
+}
+
+export function getCommentIndentation(commentEl: HTMLElement): number {
+  const avatarLink = findInShadows(
+    'a[href*="/in/"]',
+    commentEl
+  ) as HTMLElement | null
+  if (!avatarLink) return 0
+
+  const style = avatarLink.getAttribute("style") || ""
+  if (
+    style.includes("margin-inline-start") ||
+    style.includes("margin-left") ||
+    style.includes("--_25701a71")
+  ) {
+    return 1
+  }
+
+  let curr: HTMLElement | null = avatarLink
+  while (curr && curr !== commentEl) {
+    const inlineStyle = curr.getAttribute("style") || ""
+    if (
+      inlineStyle.includes("margin-inline-start") ||
+      inlineStyle.includes("margin-left") ||
+      inlineStyle.includes("--_25701a71")
+    ) {
+      return 1
+    }
+    curr = curr.parentElement
+  }
+
+  try {
+    const computed = window.getComputedStyle(avatarLink)
+    const marginStart = computed.marginInlineStart || computed.marginLeft || "0"
+    if (
+      marginStart &&
+      marginStart !== "0" &&
+      marginStart !== "0px" &&
+      marginStart !== "normal"
+    ) {
+      return 1
+    }
+  } catch (e) {}
+
+  return 0
 }

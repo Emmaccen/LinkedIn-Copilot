@@ -18,24 +18,40 @@ import {
   type ContextType,
   type DropdownAction,
   type NotificationType,
+  type PostCommentThreadItem,
   type TemplateCategory,
   type UsageStats,
   type UserDetails,
   type UserInfo,
   type UserSettings
 } from "~types"
-import { extractLinkedInComments, formatPostCommentThreadItems } from "~utils"
+import {
+  extractAuthorName,
+  extractSingleComment,
+  findAllInShadows,
+  findClosestIncludingShadows,
+  findClosestPrecedingComment,
+  findCommentByUrn,
+  findInShadows,
+  formatPostCommentThreadItems,
+  getCommentIndentation
+} from "~utils"
 
 export const config: PlasmoCSConfig = {
   matches: ["https://*.linkedin.com/*"],
   all_frames: false
 }
 
+const POST_CARD_SELECTOR =
+  '[role="listitem"], [aria-label="Primary content"], [role="article"], .feed-shared-update-v2, article, .feed-shared-update-detail-viewer__overflow-content, .feed-shared-update-detail-viewer__right-panel'
+
 class LinkedinCopilot {
   private templates: Record<string, TemplateCategory>
   private userSettings: UserSettings
   private activeDropdowns: Set<HTMLElement> = new Set()
   private observer: MutationObserver
+  private observedShadowRoots: WeakSet<ShadowRoot> = new WeakSet()
+  private shadowObservers: MutationObserver[] = []
   private userDetails: UserDetails
   private messageObserver: MutationObserver
   private UserAnalytics: typeof Analytics
@@ -56,6 +72,7 @@ class LinkedinCopilot {
     this.setupDropdownObserver()
     this.injectStyles()
     this.scanForInputs()
+    this.attachWritePostWithAiUI(document.body)
     this.messageObserver = messageExtractor.watchForNewMessages(
       (message, replyButton) => this.AiReplySingleDM(message, replyButton)
     )
@@ -80,30 +97,124 @@ class LinkedinCopilot {
   }
 
   private attachWritePostWithAiUI = (element: Element) => {
-    // Check specifically for post dialog
-    const postDialog = element.classList.contains("share-box")
+    const selector =
+      "[contenteditable='true'][aria-label='Text editor for creating content'], [contenteditable='true'].ql-editor, [contenteditable='true'][data-placeholder*='thoughts']"
+    const postInputBox = (
+      element.matches?.(selector) ? element : findInShadows(selector, element)
+    ) as HTMLElement
 
-    if (postDialog) {
-      const postContainer = element
-      const postInputBox = postContainer.querySelector(
-        ".ql-editor[role='textbox']"
+    if (postInputBox && !postInputBox.hasAttribute("data-copilot-attached")) {
+      postInputBox.setAttribute("data-copilot-attached", "true")
+
+      const container = findClosestIncludingShadows(
+        postInputBox,
+        ".share-box, dialog, [role='dialog']"
       )
-      const writeWithAiTip = document.createElement("div")
-      writeWithAiTip.innerHTML = `
-                <div class="writeWithAiTip">
-                  <p class="">Linkedin Copilot is enabled, describe your post and click the "Pilot Button" to generate/edit content</p>
-                  <button class="writeWithAiButton">Pilot ✨</button>
+      let attached = false
+
+      if (container) {
+        // Try inserting into the detour button carousel slider
+        const slider = findInShadows(".artdeco-carousel__slider", container)
+        if (slider) {
+          if (!findInShadows(".copilot-detour-item", slider)) {
+            const li = document.createElement("li")
+            li.className =
+              "artdeco-carousel__item share-creation-state__promoted-detour-button-item copilot-detour-item"
+            li.setAttribute("tabindex", "-1")
+            li.style.width = "auto"
+            li.style.marginRight = "8px"
+            li.style.display = "inline-flex"
+            li.style.alignItems = "center"
+
+            li.innerHTML = `
+              <div class="artdeco-carousel__item-container">
+                <div class="display-flex align-items-center">
+                  <button class="artdeco-button artdeco-button--muted artdeco-button--1 artdeco-button--secondary copilot-post-ai-btn" type="button" style="border: 1px dashed var(--color-brand, #0a66c2) !important; background: rgba(10, 102, 194, 0.05) !important;">
+                    <span class="artdeco-button__text">
+                      <span class="display-flex align-items-center text-body-medium-bold" style="gap: 4px; color: var(--color-brand, #0a66c2) !important;">
+                        <span>✨</span>
+                        Write with AI
+                      </span>
+                    </span>
+                  </button>
                 </div>
-                `
-      const writeWithAiButtonAction = writeWithAiTip.querySelector(
-        ".writeWithAiButton"
-      ) as HTMLButtonElement
-      writeWithAiButtonAction.addEventListener("click", async (e) => {
-        e.preventDefault()
-        await this.writeFeedPostWithAi()
-      })
-      if (postInputBox) {
-        postInputBox.parentElement.insertBefore(writeWithAiTip, postInputBox)
+              </div>
+            `
+            const btn = li.querySelector(
+              ".copilot-post-ai-btn"
+            ) as HTMLButtonElement
+            btn.addEventListener("click", async (e) => {
+              e.preventDefault()
+              await this.writeFeedPostWithAi(postInputBox)
+            })
+            slider.insertBefore(li, slider.firstChild)
+            attached = true
+          } else {
+            attached = true
+          }
+        }
+
+        // Fallback 1: Try inserting into the footer next to schedule/post buttons
+        if (!attached) {
+          const footer = findInShadows(
+            ".share-creation-state__schedule-and-post-container, .share-box_actions, .share-box__actions",
+            container
+          )
+          if (footer) {
+            if (!findInShadows(".copilot-post-ai-btn", footer)) {
+              const btn = document.createElement("button")
+              btn.className =
+                "artdeco-button artdeco-button--muted artdeco-button--1 artdeco-button--secondary copilot-post-ai-btn"
+              btn.type = "button"
+              btn.style.marginRight = "8px"
+              btn.style.border =
+                "1px dashed var(--color-brand, #0a66c2) !important"
+              btn.style.background = "rgba(10, 102, 194, 0.05) !important"
+              btn.innerHTML = `
+                <span class="artdeco-button__text">
+                  <span class="display-flex align-items-center text-body-medium-bold" style="gap: 4px; color: var(--color-brand, #0a66c2) !important;">
+                    <span>✨</span>
+                    Write with AI
+                  </span>
+                </span>
+              `
+              btn.addEventListener("click", async (e) => {
+                e.preventDefault()
+                await this.writeFeedPostWithAi(postInputBox)
+              })
+              footer.insertBefore(btn, footer.firstChild)
+              attached = true
+            } else {
+              attached = true
+            }
+          }
+        }
+      }
+
+      // Fallback 2: Insert tip container cleanly before the editor container (original behavior)
+      if (!attached) {
+        const writeWithAiTip = document.createElement("div")
+        writeWithAiTip.className = "writeWithAiTip"
+        writeWithAiTip.innerHTML = `
+          <span class="writeWithAiTipText">Linkedin Copilot is enabled. Describe your post and click the button to generate/edit content.</span>
+          <button class="writeWithAiButton">Pilot ✨</button>
+        `
+        const writeWithAiButtonAction = writeWithAiTip.querySelector(
+          ".writeWithAiButton"
+        ) as HTMLButtonElement
+        writeWithAiButtonAction.addEventListener("click", async (e) => {
+          e.preventDefault()
+          await this.writeFeedPostWithAi(postInputBox)
+        })
+
+        const insertionPoint =
+          findClosestIncludingShadows(postInputBox, ".editor-content") ||
+          postInputBox.parentElement
+        if (insertionPoint) {
+          insertionPoint.insertAdjacentElement("beforebegin", writeWithAiTip)
+        } else if (postInputBox.parentNode) {
+          postInputBox.parentNode.insertBefore(writeWithAiTip, postInputBox)
+        }
       }
     }
   }
@@ -115,23 +226,18 @@ class LinkedinCopilot {
       .map((paragraph) => `<p>${paragraph}</p><p><br></p>`)
       .join("")
   }
-  private async writeFeedPostWithAi(): Promise<void> {
-    // share-creation-state__text-editor
-    const postContainer = document.querySelector(".share-box") as HTMLElement
-    if (!postContainer) return
-    this.startAiProcessing(postContainer)
-    const inputElement = postContainer.querySelector(
-      ".ql-editor[role='textbox']"
-    ) as HTMLElement
 
-    if (!inputElement) {
-      this.stopAiProcessing(postContainer)
-      return this.showNotification("Post input not found", "error")
-    }
+  private async writeFeedPostWithAi(inputElement: HTMLElement): Promise<void> {
+    if (!inputElement) return
+    const container =
+      findClosestIncludingShadows(inputElement, ".share-box") ||
+      inputElement.parentElement ||
+      inputElement
+    this.startAiProcessing(container as HTMLElement)
 
-    const textContent = inputElement?.textContent?.trim() || ""
+    const textContent = inputElement.textContent?.trim() || ""
     if (!textContent) {
-      this.stopAiProcessing(postContainer)
+      this.stopAiProcessing(container as HTMLElement)
       return this.showNotification("Post content is empty", "warning")
     }
 
@@ -155,9 +261,9 @@ class LinkedinCopilot {
 
       // For contenteditable elements (like LinkedIn's post composer)
       const htmlMessage = this.convertTextToHtml(finalOutput)
-      this.setInputValue(htmlMessage, inputElement, false)
+      this.setInputValue(htmlMessage, inputElement, false, true)
 
-      this.stopAiProcessing(postContainer)
+      this.stopAiProcessing(container as HTMLElement)
       chrome.runtime.sendMessage(
         {
           type: AnalyticsEventTypes.GA_EVENT,
@@ -168,7 +274,7 @@ class LinkedinCopilot {
       )
     } catch (error) {
       this.showNotification("AI service unavailable", "error")
-      this.stopAiProcessing(postContainer)
+      this.stopAiProcessing(container as HTMLElement)
       chrome.runtime.sendMessage(
         {
           type: AnalyticsEventTypes.GA_ERROR_EVENT,
@@ -190,17 +296,20 @@ class LinkedinCopilot {
       const dmContainer = this.findTopLevelContainer(
         message.element as HTMLElement,
         (element) =>
-          !!element.querySelector(
-            ".msg-form__contenteditable[contenteditable='true']"
+          !!findInShadows(
+            ".msg-form__contenteditable[contenteditable='true']",
+            element
           )
       )
       if (!dmContainer) return
 
-      const dmInput = dmContainer.querySelector(
-        ".msg-form__contenteditable[contenteditable='true']"
+      const dmInput = findInShadows(
+        ".msg-form__contenteditable[contenteditable='true']",
+        dmContainer
       ) as HTMLElement
       if (!dmInput) return
-      const loaderContainer = dmInput.closest(
+      const loaderContainer = findClosestIncludingShadows(
+        dmInput,
         ".msg-form__msg-content-container--scrollable"
       ) as HTMLElement
       this.startAiProcessing(loaderContainer)
@@ -244,49 +353,182 @@ class LinkedinCopilot {
   }
 
   private setupDropdownObserver(): void {
-    this.observer = new MutationObserver((mutations) => {
-      mutations.forEach((mutation) => {
-        if (mutation.type === "childList") {
-          mutation.addedNodes.forEach((node) => {
-            if (node.nodeType === Node.ELEMENT_NODE) {
-              const element = node as Element
-              // Scan for inputs
-              this.scanForInputs(element)
-              this.attachWritePostWithAiUI(element)
-            }
-          })
-        }
-      })
-    })
+    const callback = () => {
+      this.scanForInputs(document.body)
+      this.attachWritePostWithAiUI(document.body)
+      this.observeNewShadowRoots()
+    }
+
+    this.observer = new MutationObserver(callback)
 
     this.observer.observe(document.body, {
       childList: true,
       subtree: true
     })
+
+    this.observeNewShadowRoots()
+  }
+
+  private observeNewShadowRoots(): void {
+    const shadowHosts = this.findAllShadowHosts(document.body)
+    shadowHosts.forEach((host) => {
+      if (host.shadowRoot && !this.observedShadowRoots.has(host.shadowRoot)) {
+        this.observedShadowRoots.add(host.shadowRoot)
+
+        const shadowObserver = new MutationObserver(() => {
+          this.scanForInputs(document.body)
+          this.attachWritePostWithAiUI(document.body)
+          this.observeNewShadowRoots()
+        })
+
+        shadowObserver.observe(host.shadowRoot, {
+          childList: true,
+          subtree: true
+        })
+
+        this.shadowObservers.push(shadowObserver)
+      }
+    })
+  }
+
+  private findAllShadowHosts(startNode: Node = document.body): Element[] {
+    const hosts: Element[] = []
+
+    function walk(node: Node) {
+      if (node instanceof Element) {
+        if (node.shadowRoot) {
+          hosts.push(node)
+          walk(node.shadowRoot)
+        }
+      }
+      let child = node.firstChild
+      while (child) {
+        walk(child)
+        child = child.nextSibling
+      }
+    }
+
+    walk(startNode)
+    return hosts
   }
 
   private scanForInputs(container: Element = document as any as Element): void {
-    // LinkedIn's feed class names are hashed and rotate on each deploy, so
-    // we rely on aria-label instead. LinkedIn has to keep that stable for
-    // accessibility. If this breaks, check whether the aria-label changed.
     const COMMENT_EDITOR_SELECTOR =
       '[contenteditable="true"][aria-label="Text editor for creating comment"]'
 
-    const commentBoxes = Array.from(
-      container.querySelectorAll(COMMENT_EDITOR_SELECTOR)
-    )
+    const commentBoxes = findAllInShadows(COMMENT_EDITOR_SELECTOR, container)
 
-    // DM pages still use stable class names, so no changes needed there.
-    const dmBoxes = container.querySelectorAll(
-      ".msg-form__contenteditable[contenteditable='true']"
+    const dmBoxes = findAllInShadows(
+      ".msg-form__contenteditable[contenteditable='true']",
+      container
     )
     if (dmBoxes.length > 0) {
       this.attachPilotToDmBoxes(dmBoxes[0] as HTMLElement, "dm")
     }
 
-    commentBoxes.forEach((box) =>
+    commentBoxes.forEach((box) => {
+      const commentItem = findClosestIncludingShadows(
+        box,
+        'div[componentkey^="replaceableComment_"]'
+      )
+
+      let isSubReply = !!commentItem
+      let commenterName = commentItem ? extractAuthorName(commentItem).name : ""
+      let threadUrn = commentItem?.getAttribute("componentkey") ?? ""
+
+      // Flat-DOM case: reply box is a sibling of replaceableComment_ divs (not nested inside)
+      // Detect it by the @mention span or placeholder containing "reply"
+      if (!isSubReply) {
+        const mentionEl = box.querySelector('span[data-type="mention"]')
+        const placeholder =
+          box
+            .querySelector("[data-placeholder]")
+            ?.getAttribute("data-placeholder") ||
+          box.getAttribute("data-placeholder") ||
+          ""
+
+        if (mentionEl || /reply/i.test(placeholder)) {
+          isSubReply = true
+          if (!commenterName && mentionEl) {
+            commenterName = mentionEl.textContent?.trim() || ""
+          }
+          // For flat-DOM, locate the LazyColumn and find the nearest preceding replaceableComment_
+          threadUrn = this.findNearestCommentUrn(box as HTMLElement)
+          if (threadUrn && !commenterName) {
+            const searchRoot =
+              findClosestIncludingShadows(
+                box,
+                'dialog, [role="dialog"], section, main'
+              ) ?? document.body
+            const targetCommentEl = findCommentByUrn(threadUrn, searchRoot)
+            if (targetCommentEl) {
+              commenterName = extractAuthorName(targetCommentEl).name
+            }
+          }
+        }
+      }
+
+      if (isSubReply) {
+        box.setAttribute("is-sub-reply", "true")
+        if (commenterName) {
+          box.setAttribute("replying-to", commenterName)
+        }
+        if (threadUrn) {
+          box.setAttribute("thread-comment-urn", threadUrn)
+        }
+      }
+
       this.attachDropdown(box as HTMLElement, "feed")
+    })
+  }
+
+  /**
+   * For a flat-DOM reply input (sibling of replaceableComment_ divs),
+   * find the URN of the nearest preceding comment within the same LazyColumn.
+   */
+  private findNearestCommentUrn(inputEl: HTMLElement): string {
+    // Walk up to find the LazyColumn or its wrapping container
+    const lazyColumn = findClosestIncludingShadows(
+      inputEl,
+      '[data-component-type="LazyColumn"]'
+    ) as HTMLElement | null
+
+    const searchRoot =
+      lazyColumn ?? (this.getPostCard(inputEl) as HTMLElement | null)
+    if (!searchRoot) return ""
+
+    // Collect all top-level replaceableComment_ elements in this container
+    // "Top-level" means not nested inside another replaceableComment_
+    const allCommentEls = findAllInShadows(
+      'div[componentkey^="replaceableComment_"]',
+      searchRoot
     )
+
+    const topLevel = allCommentEls.filter((el) => {
+      const key = el.getAttribute("componentkey")
+      const parent = el.parentElement
+      return (
+        key &&
+        !(
+          parent &&
+          findClosestIncludingShadows(parent, `div[componentkey="${key}"]`)
+        )
+      )
+    })
+
+    if (!topLevel.length) return ""
+
+    // Find the last one that comes before the inputEl in DOM order
+    let best: Element | null = null
+    for (const commentEl of topLevel) {
+      const pos = commentEl.compareDocumentPosition(inputEl)
+      // DOCUMENT_POSITION_FOLLOWING means inputEl comes AFTER commentEl
+      if (pos & Node.DOCUMENT_POSITION_FOLLOWING) {
+        best = commentEl
+      }
+    }
+
+    return best?.getAttribute("componentkey") ?? ""
   }
 
   private findTopLevelContainer(
@@ -317,20 +559,14 @@ class LinkedinCopilot {
     const dropdown = this.createDropdown(context, inputElement)
     dropdown.style.display = "none"
 
-    // The form wrapper and the comments section are siblings inside the post card.
-    // Inserting our bar before the comments section puts it cleanly below the
-    // entire form without touching any of LinkedIn's internal input structure.
-    const postCard = inputElement.closest('[role="listitem"]')
-    const commentsSection = postCard?.querySelector(
-      '[componentkey^="commentsSectionContainer"]'
+    const composeForm = findClosestIncludingShadows(
+      inputElement,
+      '[componentkey^="commentBox-"]'
     )
-
-    if (commentsSection) {
-      commentsSection.insertAdjacentElement("beforebegin", dropdown)
-    } else if (postCard) {
-      // Comments not loaded yet — append to the post card as a fallback.
-      // Not pixel-perfect, but it won't break the input.
-      postCard.appendChild(dropdown)
+    if (composeForm) {
+      composeForm.appendChild(dropdown)
+    } else {
+      inputElement.insertAdjacentElement("afterend", dropdown)
     }
 
     inputElement.addEventListener("focus", () => {
@@ -343,7 +579,6 @@ class LinkedinCopilot {
     }
   }
 
-
   private attachPilotToDmBoxes = (
     inputElement: HTMLElement,
     context: ContextType
@@ -354,11 +589,14 @@ class LinkedinCopilot {
 
     const dropdown = this.createDropdown(context, inputElement)
 
-    const inputContainer = inputElement.closest(
+    const inputContainer = findClosestIncludingShadows(
+      inputElement,
       ".msg-form__msg-content-container"
     ) as HTMLElement
 
-    inputContainer.insertAdjacentElement("afterend", dropdown)
+    if (inputContainer) {
+      inputContainer.insertAdjacentElement("afterend", dropdown)
+    }
   }
 
   private createDropdown(
@@ -478,42 +716,120 @@ class LinkedinCopilot {
           await this.handleAIChatHistoryReply(inputElement)
         } else {
           if (inputElement.getAttribute("is-sub-reply") === "true") {
-            const topLevelCommentContainer = this.findTopLevelContainer(
+            const replyingTo = inputElement.getAttribute("replying-to")
+            const threadUrn = inputElement.getAttribute("thread-comment-urn")
+
+            // Find the target comment we are replying to (the closest preceding comment in DOM order,
+            // or the closest ancestor comment in nested layout)
+            const innermostComment = findClosestIncludingShadows(
               inputElement,
-              (searchElement) =>
-                searchElement.tagName === "ARTICLE" &&
-                searchElement.getAttribute("tabindex") === "-1" &&
-                searchElement.parentElement.tagName === "DIV"
-            )
-            if (topLevelCommentContainer) {
-              const comments = extractLinkedInComments(
-                topLevelCommentContainer.parentElement
-              )
-              if (!!comments.length) {
-                let formattedCommentForAi =
-                  formatPostCommentThreadItems(comments)
-                const replyingTo = inputElement.getAttribute("replying-to")
-                formattedCommentForAi += `\n You're replying To: ${replyingTo}`
+              'div[componentkey^="replaceableComment_"]'
+            ) as HTMLElement | null
 
-                if (!replyingTo) {
-                  this.showNotification(
-                    "Unable to process who you're replying to. Please click the reply button and focus input",
-                    "error"
-                  )
-                  return
-                }
-                this.showNotification(
-                  `Replying to ${replyingTo ?? "Comment"}`,
-                  "info"
-                )
-
-                await this.ReplyPostCommentWithAI(
+            let targetCommentEl = innermostComment
+            if (innermostComment) {
+              const key = innermostComment.getAttribute("componentkey")
+              if (key) {
+                targetCommentEl =
+                  findCommentByUrn(key, document.body) ?? innermostComment
+              }
+            } else {
+              const searchRoot =
+                findClosestIncludingShadows(
                   inputElement,
-                  context,
-                  formattedCommentForAi
+                  'dialog, [role="dialog"], section, main'
+                ) ?? document.body
+              targetCommentEl = findClosestPrecedingComment(
+                inputElement,
+                searchRoot
+              )
+            }
+
+            // Collect all unique thread comments in chronological order starting from the
+            // top-level comment (resolved by walking backward to the first non-indented comment)
+            // up to the target comment we are replying to.
+            let threadComments: HTMLElement[] = []
+            const searchRoot =
+              findClosestIncludingShadows(
+                inputElement,
+                'dialog, [role="dialog"], section, main'
+              ) ?? document.body
+
+            if (targetCommentEl) {
+              const allComments = findAllInShadows(
+                'div[componentkey^="replaceableComment_"]',
+                searchRoot
+              ) as HTMLElement[]
+
+              const uniqueComments: HTMLElement[] = []
+              const seenKeys = new Set<string>()
+              allComments.forEach((el) => {
+                const key = el.getAttribute("componentkey")
+                if (key && !seenKeys.has(key)) {
+                  const parent = el.parentElement
+                  const isOutermost =
+                    !parent ||
+                    !findClosestIncludingShadows(
+                      parent,
+                      `div[componentkey="${key}"]`
+                    )
+                  if (isOutermost) {
+                    uniqueComments.push(el)
+                    seenKeys.add(key)
+                  }
+                }
+              })
+
+              const targetIndex = uniqueComments.indexOf(targetCommentEl)
+              if (targetIndex !== -1) {
+                // Walk backward from the target to find the top-level comment (first non-indented comment)
+                let startIndex = targetIndex
+                for (let i = targetIndex; i >= 0; i--) {
+                  if (getCommentIndentation(uniqueComments[i]) === 0) {
+                    startIndex = i
+                    break
+                  }
+                }
+                threadComments = uniqueComments.slice(
+                  startIndex,
+                  targetIndex + 1
                 )
+              } else {
+                threadComments = [targetCommentEl]
+              }
+            } else if (threadUrn) {
+              const topLevelEl = findCommentByUrn(threadUrn, searchRoot)
+              if (topLevelEl) {
+                threadComments = [topLevelEl]
               }
             }
+
+            // Extract the text/name of each comment element in the thread
+            const comments: PostCommentThreadItem[] = []
+            threadComments.forEach((el) => {
+              const single = extractSingleComment(el)
+              if (single) {
+                comments.push(single)
+              }
+            })
+
+            let formattedCommentForAi: string | undefined
+            if (comments.length) {
+              formattedCommentForAi = formatPostCommentThreadItems(comments)
+              if (replyingTo) {
+                formattedCommentForAi += `\nYou are replying to: ${replyingTo}`
+              }
+            }
+
+            if (replyingTo) {
+              this.showNotification(`Replying to ${replyingTo}`, "info")
+            }
+
+            await this.ReplyPostCommentWithAI(
+              inputElement,
+              context,
+              formattedCommentForAi
+            )
           } else await this.ReplyPostCommentWithAI(inputElement, context)
         }
       }
@@ -522,15 +838,67 @@ class LinkedinCopilot {
     }
   }
 
+  private getPostCard(inputElement: HTMLElement): HTMLElement | null {
+    // 1. Direct parent/ancestor
+    let postCard = findClosestIncludingShadows(
+      inputElement,
+      POST_CARD_SELECTOR
+    ) as HTMLElement
+    if (postCard) return postCard
+
+    // 2. Inside an active dialog/modal
+    const dialog =
+      findClosestIncludingShadows(inputElement, 'dialog, [role="dialog"]') ||
+      findInShadows('dialog, [role="dialog"]')
+    if (dialog) {
+      postCard = findInShadows(POST_CARD_SELECTOR, dialog) as HTMLElement
+      return postCard || (dialog as HTMLElement)
+    }
+
+    // 3. Fallback: if we are inside a sub-reply or comment sibling (flat DOM),
+    // find the top-level comment editor on the page/dialog and resolve its post card.
+    // Since the top-level comment box is always inside the post card, this is 100% reliable.
+    const searchRoot = dialog || document.body
+    const allInputs = findAllInShadows(
+      '[contenteditable="true"][aria-label="Text editor for creating comment"]',
+      searchRoot
+    ) as HTMLElement[]
+    const topLevelInput = allInputs[0]
+
+    if (topLevelInput && topLevelInput !== inputElement) {
+      const card = findClosestIncludingShadows(
+        topLevelInput,
+        POST_CARD_SELECTOR
+      ) as HTMLElement | null
+      if (card) return card
+    }
+
+    // 4. Check if we are in a main content container (like section or main or scaffold-layout)
+    // and look for the post card inside that.
+    const mainContainer = findClosestIncludingShadows(
+      inputElement,
+      "main, section, .scaffold-layout__main"
+    )
+    if (mainContainer) {
+      postCard = findInShadows(POST_CARD_SELECTOR, mainContainer) as HTMLElement
+      if (postCard) return postCard
+    }
+
+    // 5. Ultimate fallback: find the first post card in the entire document (useful for single post detail views)
+    postCard = findInShadows(POST_CARD_SELECTOR) as HTMLElement
+    if (postCard) return postCard
+
+    return null
+  }
+
   private extractPostContent(inputElement: HTMLElement): string {
-    // role="listitem" is a semantic HTML attribute on each feed post card —
-    // safe to use as a stable ancestor anchor.
-    const postCard = inputElement.closest('[role="listitem"]')
+    const postCard = this.getPostCard(inputElement)
     if (!postCard) return ""
 
     // First [data-testid="expandable-text-box"] inside the card is the post body.
-    const postTextEl = postCard.querySelector(
-      '[data-testid="expandable-text-box"]'
+    const postTextEl = findInShadows(
+      '[data-testid="expandable-text-box"]',
+      postCard
     )
     return postTextEl?.textContent?.trim() || ""
   }
@@ -578,7 +946,8 @@ class LinkedinCopilot {
     inputElement: HTMLElement
   ): Promise<void> {
     try {
-      const loaderContainer = inputElement.closest(
+      const loaderContainer = findClosestIncludingShadows(
+        inputElement,
         ".msg-form__msg-content-container--scrollable"
       ) as HTMLElement
       this.startAiProcessing(loaderContainer)
@@ -635,7 +1004,8 @@ class LinkedinCopilot {
       if (!possibleReplyToNameInInput) {
         this.setInputValue("", inputElement)
       }
-      const loaderContainer = (inputElement.closest(
+      const loaderContainer = (findClosestIncludingShadows(
+        inputElement,
         '[data-testid="ui-core-tiptap-text-editor-wrapper"]'
       ) ?? inputElement) as HTMLElement
       this.startAiProcessing(loaderContainer)
@@ -687,26 +1057,83 @@ class LinkedinCopilot {
   private extractUserInfo(inputElement: HTMLElement): UserInfo {
     const info: UserInfo = {}
 
-    const postCard = inputElement.closest('[role="listitem"]')
+    const postCard = this.getPostCard(inputElement)
     if (!postCard) return {}
 
-    // Profile links always point to /in/ — first one with a name inside
-    // is the post author. <strong> is preferred; span is the fallback.
-    const actorNameEl =
-      postCard.querySelector('a[href*="/in/"] strong') ??
-      postCard.querySelector('a[href*="/in/"] span:not([aria-hidden])')
-    if (actorNameEl?.textContent) {
-      info.name = actorNameEl.textContent.trim()
+    const { name, link: actorLink } = extractAuthorName(postCard)
+    if (name) {
+      info.name = name
+    } else {
+      const nameElement = postCard.querySelector(
+        ".update-components-actor__title, .feed-shared-actor__title"
+      )
+      if (nameElement?.textContent) {
+        info.name = nameElement.textContent.trim()
+      }
     }
 
-    // Headline lives a couple of levels above the name element.
-    // Second <p> in that block is usually the job title.
-    const actorLink = actorNameEl?.closest('a[href*="/in/"]')
-    const actorBlock = actorLink?.parentElement?.parentElement
-    if (actorBlock) {
-      const descParagraphs = actorBlock.querySelectorAll("p")
-      if (descParagraphs.length > 1) {
-        info.desc = descParagraphs[1].textContent?.trim() || ""
+    if (actorLink) {
+      let ancestor: Node | null = actorLink.parentNode
+      let descEl: HTMLElement | null = null
+      while (ancestor && ancestor !== postCard) {
+        if (ancestor instanceof ShadowRoot) {
+          ancestor = ancestor.host
+          continue
+        }
+        if (ancestor instanceof HTMLElement) {
+          const paragraphs = findAllInShadows(
+            "p",
+            ancestor
+          ) as HTMLParagraphElement[]
+          const found = paragraphs.find((p) => {
+            const text = p.textContent?.trim() || ""
+            if (!text) return false
+
+            // Filter out name
+            if (info.name && (text === info.name || text.includes(info.name)))
+              return false
+
+            // Filter out connection states (e.g. "1st", "2nd", "3rd", "• 2nd")
+            if (/^(?:•\s*)?\d+(?:st|nd|rd|th)\b/i.test(text)) return false
+
+            // Filter out suggested/promoted
+            const lowerText = text.toLowerCase()
+            if (
+              lowerText === "suggested" ||
+              lowerText === "promoted" ||
+              lowerText === "sponsored"
+            )
+              return false
+
+            // Filter out timestamps (e.g. "3d", "8h", "3d • Edited")
+            const isTimestamp =
+              /^\d+[smhdwy]\b/i.test(text) ||
+              (text.includes("•") && text.length < 30) ||
+              (text.toLowerCase().includes("edited") && text.length < 30)
+            if (isTimestamp) return false
+
+            return true
+          })
+
+          if (found) {
+            descEl = found
+            break
+          }
+        }
+        ancestor = ancestor.parentNode
+      }
+
+      if (descEl) {
+        info.desc = descEl.textContent?.trim() || ""
+      }
+    }
+
+    if (!info.desc) {
+      const userDesc = postCard.querySelector(
+        ".update-components-actor__description, .feed-shared-actor__description"
+      )
+      if (userDesc?.textContent) {
+        info.desc = userDesc.textContent.trim()
       }
     }
 
@@ -744,6 +1171,7 @@ class LinkedinCopilot {
       this.showNotification(`Using "${category}" template...`, "info")
 
       const userInfo = this.extractUserInfo(inputElement)
+      console.log(userInfo)
       const message = this.processTemplate(selectedTemplate.message, userInfo)
 
       if (this.userSettings.enableTypingSimulation) {
@@ -781,7 +1209,7 @@ class LinkedinCopilot {
   }
 
   private showDropdown(dropdown: HTMLElement): void {
-    dropdown.style.display = "block"
+    dropdown.style.display = "grid"
     this.activeDropdowns.add(dropdown)
   }
 
@@ -845,7 +1273,8 @@ class LinkedinCopilot {
   private setInputValue(
     message: string,
     inputElement: HTMLElement,
-    append = false
+    append = false,
+    isHtml = false
   ): void {
     inputElement.focus()
 
@@ -867,7 +1296,11 @@ class LinkedinCopilot {
       document.execCommand("delete", false, null)
     }
     if (message) {
-      document.execCommand("insertText", false, message)
+      if (isHtml) {
+        document.execCommand("insertHTML", false, message)
+      } else {
+        document.execCommand("insertText", false, message)
+      }
     }
 
     inputElement.dispatchEvent(
@@ -918,6 +1351,8 @@ class LinkedinCopilot {
   // Cleanup on unload
   public destroy(): void {
     this.observer?.disconnect()
+    this.shadowObservers.forEach((obs) => obs.disconnect())
+    this.shadowObservers = []
     this.activeDropdowns.forEach((dropdown) => dropdown.remove())
     this.activeDropdowns.clear()
     this.messageObserver.disconnect()

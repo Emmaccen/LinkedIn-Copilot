@@ -1,4 +1,12 @@
 export const linkedInCopilotStyles = `
+      .copilot-dropdown {
+          width: 100%;
+          max-width: 100%;
+          box-sizing: border-box;
+          overflow: hidden;
+          margin: 15px 0px;
+      }
+
       .copilot-capsule-container {
           display: flex;
           align-items: center;
@@ -9,6 +17,7 @@ export const linkedInCopilotStyles = `
           font-size: 12px;
           scrollbar-width: none;
           -ms-overflow-style: none;
+          width: 100%;
       }
 
       .copilot-capsule-container::-webkit-scrollbar {
@@ -188,22 +197,40 @@ export const linkedInCopilotStyles = `
         }
       }
 
-        .writeWithAiTip {
-        background: -webkit-linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      .writeWithAiTip {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        margin: 10px 0 15px;
+        padding: 12px 16px;
+        border-radius: 8px;
+        background: rgba(102, 126, 234, 0.05);
+        border: 1px dashed rgba(102, 126, 234, 0.3);
+      }
+      .writeWithAiTipText {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
         -webkit-background-clip: text;
         -webkit-text-fill-color: transparent;
-        display: inline-flex;
-        gap: 4px;
-        align-items: center;
-        margin: 0 0 15px;
+        font-size: 13px;
+        font-weight: 500;
+        line-height: 1.4;
       }
       .writeWithAiButton {
-        border: 1px solid #667eea;
-        border-radius: 10px;
-        padding: 5px 10px;
-        font-size: 14px;
-        font-weight: 500;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white !important;
+        -webkit-text-fill-color: white !important;
+        border: none;
+        border-radius: 20px;
+        padding: 6px 16px;
+        font-size: 12px;
+        font-weight: bold;
         cursor: pointer;
-        white-space: nowrap;
-        }
+        width: fit-content;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        transition: transform 0.1s ease, box-shadow 0.1s ease;
+      }
+      .writeWithAiButton:active {
+        transform: scale(0.98);
+        box-shadow: 0 1px 2px rgba(0,0,0,0.1);
+      }
     `

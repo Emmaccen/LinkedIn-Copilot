@@ -23,8 +23,8 @@ Things shift as LinkedIn does. This is where things actually stand.
 | DMs (single message reply) | Working |
 | DMs (full chat history) | Working |
 | Templates | Working (scrollable capsule bar) |
-| Post creation (Pilot button) | In progress |
-| Thread replies (sub-comments) | In progress |
+| Post creation (Write with AI) | Working (detour button list & editor fallback) |
+| Thread replies (sub-comments) | Working (context-aware names & history) |
 
 ---
 
@@ -87,7 +87,7 @@ LinkedIn rotates their CSS class names. Open DevTools on the feed and you will s
 ```
 [aria-label="Text editor for creating comment"]   the comment editor
 [data-testid="ui-core-tiptap-text-editor-wrapper"]  the editor container
-[role="listitem"]                                  the post card
+[role="listitem"], [aria-label="Primary content"]  the post card / primary content container
 [data-testid="expandable-text-box"]               the post body text
 a[href*="/in/"] strong                            the post author name
 ```

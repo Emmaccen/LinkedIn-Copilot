@@ -1,7 +1,7 @@
 {
   "name": "linkedin-copilot",
   "displayName": "Linkedin Copilot",
-  "version": "0.0.6",
+  "version": "0.0.7",
   "description": "An AI copilot for LinkedIn. Generate smart replies, craft engaging posts, and boost your networking and engagement with ease.",
   "author": "Lucius Emmanuel <lucius.emmanuel.e@gmail.com>",
   "scripts": {
