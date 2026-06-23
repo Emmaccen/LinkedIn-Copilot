@@ -1,5 +1,15 @@
 # Changelog
 
+## [v0.0.9] — 23-06-2026
+
+### Added
+
+- **Anti-Hallucination Guidelines**: Introduced `ANTI_HALLUCINATION_GUIDE` to strictly enforce factuality, instructing the AI to never invent scenarios, fake stories, or team metrics not explicitly present in the user's profile.
+
+### Changed
+
+- **Prompt Re-Architecture**: Offloaded anti-slop and anti-hallucination instruction blocks from the system messages and dynamically appended them to the user prompts to reduce system prompt verbosity and enforce strict behavioral constraints.
+
 ## [v0.0.8] — 22-06-2026
 
 ### Added

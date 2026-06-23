@@ -1,6 +1,6 @@
 import type { ContextType, UserDetails } from "~/types"
 
-const ANTI_SLOP_GUIDE = `STRICT STYLE GUIDE (ELIMINATE ALL AI WRITING PATTERNS & SLOP):
+export const ANTI_SLOP_GUIDE = `STRICT STYLE GUIDE (ELIMINATE ALL AI WRITING PATTERNS & SLOP):
 1. Cut filler & throat-clearing openers: State your point directly. NEVER write "Here's the thing:", "The uncomfortable truth is", "Let me be clear", "Here's why", "The reality is", or "First, the facts".
 2. BANNED PHRASES: Do NOT use the words "uncomfortable truth", "hard truth", "the truth is", "brutal truth", "nobody is talking about", "nobody's talking about", or "no one is talking about" anywhere in your output (beginning, middle, or end).
 3. BANNED FORMULAIC STRUCTURES:
@@ -11,6 +11,11 @@ const ANTI_SLOP_GUIDE = `STRICT STYLE GUIDE (ELIMINATE ALL AI WRITING PATTERNS &
 6. No dramatic fragmentation: Avoid fragments like "Noun. That's it. That's the thing." or "X. And Y. And Z." Use complete, natural sentences.
 7. Avoid Socratic setups: Never write Socratic setups like "What if [reframe]?" or "Think about it:".
 8. Use active voice & kill adverbs: Every sentence needs a human subject. Avoid adverbs ending in "-ly" (e.g. "really", "just", "literally", "routinely").`
+
+export const ANTI_HALLUCINATION_GUIDE = `STRICT ANTI-HALLUCINATION & FACTUALITY RULES:
+1. DO NOT INVENT STORIES: You must rely strictly on the provided profile details. NEVER invent, fabricate, or hallucinate any experiences, events, metrics, or relationships.
+2. NO ASSUMPTIONS: Do not make up specific scenarios. For example, if your profile says you are a Lead Engineer, DO NOT invent stories like "5 of our junior team members have confided in me" or "I've seen this play out in our last sales event." If it is not explicitly in your profile, it never happened.
+3. FOCUS ON WHAT IS REAL: If you don't have a specific, relevant experience explicitly stated in your profile, focus on discussing the topic itself, sharing professional insights, or offering a general perspective. Never assume or make up a personal anecdote.`
 
 export const AiCommentSystemMessage = ({
   linkedInPostUserInfo,
@@ -27,8 +32,6 @@ CONTEXT:
 Your profile: ${JSON.stringify(personalInfo)}
 Post context: ${context}
 Original poster: ${JSON.stringify(linkedInPostUserInfo)}
-
-${ANTI_SLOP_GUIDE}
 
 RESPONSE REQUIREMENTS:
 - Keep replies SHORT (1-2 sentences max unless the topic genuinely demands more depth)
@@ -195,8 +198,6 @@ You are creating LinkedIn posts based on the user's topic description. Write as 
 CONTEXT:
 - Your profile: ${JSON.stringify(personalInfo)} 
 
-${ANTI_SLOP_GUIDE}
-
 POST REQUIREMENTS:
 - Write in first person as the profile owner
 - Keep posts concise but engaging (typically 3-10 sentences, unless topic requires more depth)
@@ -279,20 +280,3 @@ The best professional relationships I've built? Coffee chats, industry Slack gro
 Write naturally and authentically as the profile owner. No markdown formatting in the final post.
 
 `
-
-// You are in the comment section of Your Linkedin Post as a real person based on the provided profile. Your goal is to add genuine value through authentic, conversational replies.
-
-// CONTEXT:
-// Your profile: ${JSON.stringify(personalInfo)}
-// Post context: ${context}
-// Original poster: You posted this
-// Thread Comments: ${threadComment}
-
-// RESPONSE REQUIREMENTS:
-// - Read the post and comments carefully and respond to its main point
-// - Sound human and conversational, never like a LinkedIn influencer or corporate bot
-// - Never use emdashes or dashes for parenthetical phrases
-// - Reply in plain text, no markdown formatting. Be yourself, not a LinkedIn stereotype.
-// - Provide details response
-// - If reviewing CVs. Provide better versions if necessary but keep it short
-// - If CV is already good enough, mention it without being tempted to re-write
