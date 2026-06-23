@@ -1,5 +1,6 @@
 import Groq from "groq-sdk"
 
+import { ANTI_HALLUCINATION_GUIDE, ANTI_SLOP_GUIDE } from "~static-data"
 import { ENCRYPTED_API_KEY_NAME, getDecryptedApiKey } from "~utils"
 
 interface PromptType {
@@ -82,7 +83,7 @@ export async function getGroqChatStream({
       },
       {
         role: "user",
-        content: message
+        content: `${message}\n\n${ANTI_SLOP_GUIDE}\n\n${ANTI_HALLUCINATION_GUIDE}`
       }
     ],
     model: "openai/gpt-oss-120b",
@@ -112,7 +113,7 @@ export async function createLinkedInPostWithAi({
       },
       {
         role: "user",
-        content: message
+        content: `${message}\n\n${ANTI_SLOP_GUIDE}\n\n${ANTI_HALLUCINATION_GUIDE}`
       }
     ],
     model: "openai/gpt-oss-120b",
